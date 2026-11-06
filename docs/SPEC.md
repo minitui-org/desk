@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: draft, pre-implementation. Captures decisions from the design discussion of 2026-11-05.
+Status: Phase 0 in review. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -78,7 +78,7 @@ MiniTui                 (core; no dependencies — unchanged rule)
 ```
 
 - `MiniTui.Vt` has standalone value: an embedded shell pane in any MiniTui app.
-- `MiniTui.Desk.Protocol` must be tiny, AOT- and trim-safe, and use System.Text.Json source generation with no other dependencies.
+- `MiniTui.Desk.Protocol` must be tiny, AOT- and trim-safe, and use System.Text.Json source generation. It depends on `MiniTui` (for the one-call opt-in, §8.5) and nothing else.
 - Target `net10.0` to match core. Trim- and AOT-compatible throughout.
 
 ### 5.3 Rendering backends
@@ -91,13 +91,16 @@ Each phase gets its own spec section before implementation begins, with acceptan
 **Phase 0 — Contracts (spec only)**
 - Desk Protocol v0 (§8) finalized.
 - `MiniTui.Vt` public API sketched.
-- MiniTui core changes (§7) specced in the MiniTui repo's own spec style.
+- PTY spawning proven (§11.1).
+- Core changes (§7) are not specced now: Phase 1 and 2 don't need them, so they're specced when Phase 3 starts.
 - Exit: specs reviewed by Ben.
 
 **Phase 1 — Shell inside a terminal emulator**
 - `MiniTui.Vt`:
-  - PTY spawn via `openpty`/`forkpty` P/Invoke, with resize (TIOCSWINSZ plus SIGWINCH to the child)
-  - VT parser (DEC/ANSI state machine) and screen model: SGR (16, 256 and truecolor), cursor movement, scroll regions, alternate screen, wide characters, bracketed paste and mouse passthrough
+  - PTY spawn via `openpty` and `posix_spawn` P/Invoke (§11.1), never `forkpty`, with resize by `TIOCSWINSZ`
+  - VT parser (DEC/ANSI state machine) and screen model: SGR (16, 256 and truecolor), cursor movement, scroll regions, alternate screen, wide characters, synchronized output
+  - Replies to terminal queries, and OSC 52 forwarding (§11.4)
+  - Input encoding: keys, mouse and pastes back to bytes, following each child's modes (§11.3)
   - A `TerminalView` widget drawing into a `CellBuffer`
 - Shell: one foreground app at a time, filling the screen apart from a one-row status line.
   - App switcher (command-palette style, using the existing `CommandPalette` and `Fuzzy`)
@@ -105,7 +108,8 @@ Each phase gets its own spec section before implementation begins, with acceptan
   - Status line: clock, app name, notification count
   - Notification queue with Do Not Disturb on by default; notifications are batched and viewed on demand
   - A configurable global prefix key, tmux-style, so hosted apps keep all their other keys
-- Exit criteria: nvim, k9s, htop, bash and Claude Code run correctly, resize correctly and survive app crashes. Ben uses it for a working session.
+- Exit criteria: nvim, k9s, htop, bash and Claude Code run correctly, resize correctly and survive app crashes. Shift+Enter reaches Claude Code when the outer terminal reports it. A flood of output (`yes`) doesn't stall input to the shell. Ben uses it for a working session.
+- Sub-phases, one branch and PR each: **1a** PTY, **1b** parser and screen, **1c** input encoding and query replies, **1d** the shell.
 
 **Phase 2 — Native apps**
 - `MiniTui.Desk.Protocol` client implemented; MiniTui apps opt in with one call.
@@ -126,39 +130,101 @@ Each phase gets its own spec section before implementation begins, with acceptan
 
 **Rule:** nothing enters core without a standalone justification. Anything needed only by Desk lives in a Desk package.
 
-Known changes:
+Phase 1 and 2 use `AnsiBackend` and the default input source, so they need no core changes. Both changes below are specced when Phase 3 starts.
+
+Known changes (Phase 3):
 1. **Public rich input source.** Today the public `IInputSource` handles keys only (`TryRead(out ConsoleKeyInfo)`). Pastes, mouse events and terminal replies flow through internal interfaces (`InputItem`, `IInputItemSource`, `IMouseCapture`, `IInputLifecycle`, `IWaitableInputSource`). Phase 3's libinput source needs a public equivalent.
    - Standalone justification: custom input sources, replay and recording, and test harnesses.
-2. **Backend capability detection.** `AppLoop` and `AppSuspend` special-case `AnsiBackend` and `LegacyConsoleBackend` in places: clipboard query, terminal queries, color mode, suspend. A third-party backend needs a capability surface, such as an optional interface for color mode, clipboard and queries, instead of type checks.
+2. **Backend capability detection.** `AppLoop`, `AppSuspend`, `AppTerminalInfo`, `Clipboard` and `Terminal` special-case `AnsiBackend` and `LegacyConsoleBackend` in places: clipboard write and query, terminal queries, color mode, suspend, frame byte counts. A third-party backend needs a capability surface, such as an optional interface for color mode, clipboard and queries, instead of type checks.
    - Standalone justification: alternative backends in general.
+
+Candidate from Phase 1:
+- **Richer cell styles.** `Modifiers` has no blink, and `Cell` has no curly or coloured underlines or OSC 8 hyperlinks. Phase 1 flattens them (§11.2). Adding them is justified for any app that wants them, so file it once real use shows it matters.
 
 Anything else discovered in Phases 1 and 2 must be filed against MiniTui with its standalone justification written down.
 
 Constraints that must not regress: no runtime dependencies, cross-platform core, trim/AOT compatibility, and `PublicAPI.Shipped.txt` discipline.
 
-## 8. Desk Protocol v0 (draft)
+## 8. Desk Protocol v0
 
-- **Discovery:** the shell sets `MINITUI_DESK_SOCKET=<path>` and `MINITUI_DESK_APP_ID=<id>` in each child's environment. If these are absent, the client does nothing and the app behaves exactly as it does outside Desk.
-- **Transport:** a Unix domain socket carrying newline-delimited JSON. Each message is `{"v":0,"type":"…",…}`.
-- **App → shell**
-  - `hello` `{appId, name, version, protocol: 0}`
-  - `title` `{text}`: short status shown in the status line and switcher
-  - `notify` `{id, title, body, urgency: low|normal|high}`: queued by the shell's notification policy
-  - `launch` `{appId, args}`: ask the shell to open another app
-  - `bye`
-- **Shell → app**
-  - `welcome` `{protocol: 0, theme: light|dark}`
-  - `focus` `{focused: bool}`: apps may pause work while in the background
-  - `notificationAction` `{id, action}`
-  - `quitRequest`: polite close; the app may refuse with a confirm dialog
-- **Compatibility:** unknown message types and fields are ignored. A version mismatch is negotiated down at `hello`/`welcome`.
-- **Out of scope for v0:** clipboard (the PTY already carries OSC 52), rendering, and IPC between apps.
+### 8.1 Discovery
+The shell sets `MINITUI_DESK_SOCKET=<path>` and `MINITUI_DESK_APP_ID=<id>` in each child's environment. If either is absent, or the socket can't be reached, the client does nothing and the app behaves exactly as it does outside Desk.
 
-## 9. Open decisions
+Children inherit these, so a MiniTui app started from a hosted bash connects with bash's id. That's accepted: it's what's in the foreground of that PTY. An id can have several connections, and the most recent `hello` provides the name and title until it disconnects, when the previous one takes over.
 
-| # | Question | Recommendation |
+### 8.2 Transport
+- A Unix domain socket at `$XDG_RUNTIME_DIR/tuidesk/<shell pid>.sock`, in a directory of mode `0700`. Without `XDG_RUNTIME_DIR`, Desk uses `/tmp/tuidesk-<uid>/`, refusing it if another user owns it.
+- Newline-delimited JSON, UTF-8, one object per line, each with a `type`. A line longer than 64 KiB closes the connection.
+- The app speaks first, with `hello`. The shell ignores anything else before it.
+
+### 8.3 Messages
+
+App → shell:
+
+| Type | Fields | Meaning |
 |---|---|---|
-| 1 | Write the VT parser in C# or bind libvterm? | Pure C#, keeping it dependency-free and AOT-friendly; test with vttest and recorded sessions |
+| `hello` | `appId, name, version, protocol` | `protocol` is the highest version the app speaks |
+| `title` | `text` | Short status in the status line and switcher. Control characters are stripped |
+| `notify` | `id, title, body, urgency, actions?` | Queued by the shell's policy. `urgency` is `low`, `normal` or `high`. `actions` is a list of `{id, label}`. A repeated `id` replaces the earlier one from that app |
+| `launch` | `appId, args` | Open another app from `apps.json`. An unknown id is ignored |
+| `bye` | | The app is closing the connection on purpose |
+
+Shell → app:
+
+| Type | Fields | Meaning |
+|---|---|---|
+| `welcome` | `protocol, theme` | The version to use: the lower of the two. `theme` is `light` or `dark` |
+| `focus` | `focused` | Sent when it changes; apps may pause while in the background |
+| `notificationAction` | `id, action` | The user chose an action from `notify.actions` |
+| `quitRequest` | | Polite close. There's no reply: the app exits, or stays and asks the user. The switcher can always kill it |
+
+```
+{"type":"hello","appId":"notes-1","name":"Notes","version":"0.1.0","protocol":0}
+{"type":"welcome","protocol":0,"theme":"dark"}
+{"type":"notify","id":"sync","title":"Synced","body":"12 notes","urgency":"low"}
+```
+
+### 8.4 Compatibility and failure
+- Unknown message types and fields are ignored.
+- The client never throws into the app. If the connection drops, it goes inactive and doesn't reconnect, and the app carries on.
+- **Decision:** there's no per-message `v` field, unlike the draft. The version is agreed once per connection at `hello`/`welcome`, so repeating it adds nothing.
+- **Out of scope for v0:** clipboard (§11.4), rendering, and IPC between apps.
+
+### 8.5 Client API
+
+```csharp
+namespace MiniTui.Desk.Protocol;
+
+public sealed class DeskClient : IAsyncDisposable
+{
+    public static DeskClient Connect(string name, string? version = null);  // inactive outside Desk
+    public bool IsActive { get; }
+    public bool IsFocused { get; }                                          // true outside Desk
+    public string? Theme { get; }
+    public void SetTitle(string text);
+    public void Notify(DeskNotification notification);
+    public void Launch(string appId, params string[] args);
+    public event Action<bool>? FocusChanged;
+    public event Action<string, string>? NotificationAction;                // id, action
+    public event Action? QuitRequested;
+}
+
+public static class DeskAppExtensions
+{
+    // The one-call opt-in: events arrive on the app's thread through App.Post. With no handler, quitRequest calls app.Quit.
+    public static App WithDesk(this App app, string name, out DeskClient client, string? version = null);
+}
+```
+
+Every member is a no-op when inactive, so apps don't need to check.
+
+## 9. Decisions
+
+Accepted by Ben on 2026-11-05, as recommended.
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Write the VT parser in C# or bind libvterm? | Pure C#, keeping it dependency-free and AOT-friendly; test with vttest and recorded sessions. Stress-test early in 1b; falling back to libvterm would be a new decision |
 | 2 | Where does `MiniTui.Vt` live: the `desk` repo or the `minitui` repo? | Start in `desk`; move it to `minitui` when its API stabilizes |
 | 3 | Config format | JSON (System.Text.Json, no extra dependency) |
 | 4 | Prefix key default | `Ctrl+Space` (avoids tmux's `Ctrl+B` clash) |
@@ -172,3 +238,121 @@ Constraints that must not regress: no runtime dependencies, cross-platform core,
 - Read `src/MiniTui/Terminal/ITerminalBackend.cs`, `Terminal/IInputSource.cs`, `App/AppLoop.cs` and `App/AppSuspend.cs` before writing §7 specs.
 - Don't modify MiniTui core from the `desk` repo. Raise core changes as specs or PRs in `minitui` with their standalone justification.
 - The test strategy should mirror MiniTui's: `TestBackend` and `ScriptedInputSource` for the shell, and golden-screen tests for `MiniTui.Vt`.
+
+## 11. `MiniTui.Vt` (Phase 0 contract)
+
+### 11.1 Spawning (proven)
+`forkpty` is out: the child would run managed code after `fork`, in a copy of the runtime with its other threads gone. Instead:
+
+1. `openpty`, then `ptsname`, then close the slave and set `FD_CLOEXEC` on the master.
+2. `posix_spawn` with `POSIX_SPAWN_SETSID`, `SETSIGDEF` for every signal and `SETSIGMASK` with an empty mask. .NET's ignored signals would otherwise reach the child.
+3. File actions: open the slave by path as fd 0, then `dup2` it to 1 and 2. Opening it after `setsid` is what makes it the controlling terminal.
+
+A spike on Ubuntu 24.04 (glibc, .NET 10, run with the normal runtime) confirmed: the child is a session leader with the PTY as its controlling terminal and the right size; no signals are ignored or blocked; `TIOCSWINSZ` alone delivers `SIGWINCH`, so the shell doesn't send it; Ctrl+C reaches the foreground job; Ctrl+Z and `jobs` work in an interactive bash.
+
+Still to prove in 1a: Native AOT (use `LibraryImport`; the spike's `DllImport` string arrays aren't AOT-safe), working directory (`posix_spawn_file_actions_addchdir_np`), and reaping with `waitpid` alongside .NET's own `SIGCHLD` handling, including when the app also uses `System.Diagnostics.Process`.
+
+### 11.2 Screen model
+
+```csharp
+namespace MiniTui.Vt;
+
+public sealed class VtScreen
+{
+    public VtScreen(int width, int height, int scrollback = 0);
+    public int Width { get; }
+    public int Height { get; }
+    public Cell this[int x, int y] { get; }          // MiniTui's Cell, so drawing is a copy
+    public (int X, int Y)? Cursor { get; }           // null when hidden
+    public string? Title { get; }
+    public VtModes Modes { get; }
+    public IVtHost? Host { get; set; }               // replies, clipboard, bell
+    public void Feed(ReadOnlySpan<byte> bytes);      // handles UTF-8 split across calls
+    public void Resize(int width, int height);
+}
+
+public interface IVtHost
+{
+    void Reply(ReadOnlySpan<byte> bytes);            // goes back to the child
+    void SetClipboard(string text);
+    void Bell();
+}
+
+public readonly record struct VtModes(
+    bool AlternateScreen, bool ApplicationCursorKeys, bool ApplicationKeypad, bool BracketedPaste,
+    VtMouseMode Mouse, VtMouseEncoding MouseEncoding, int KeyboardFlags, bool SynchronizedOutput);
+```
+
+- **`TERM`** is `xterm-256color`, so hosted apps need no terminfo entry of ours.
+- **Styles `Cell` can't hold:** curly and coloured underlines become a plain underline; blink and OSC 8 hyperlinks are dropped (§7).
+- **Synchronized output (mode 2026):** `TerminalView` draws the last complete frame until the mode ends, or for at most 200 ms.
+- **Scrollback** is off in the shell for v1. The parameter is there so an embedded pane can use it.
+
+### 11.3 Input encoding
+The shell gets decoded keys, and MiniTui has nothing that turns them back into bytes.
+
+```csharp
+public static class VtInput
+{
+    public static bool TryEncode(ConsoleKeyInfo key, VtModes modes, IBufferWriter<byte> output);
+    public static bool TryEncode(MouseEvent mouse, VtModes modes, IBufferWriter<byte> output);  // false if the child didn't ask for it
+    public static void EncodePaste(string text, VtModes modes, IBufferWriter<byte> output);
+}
+```
+
+- Cursor keys follow `ApplicationCursorKeys`. Modified keys use xterm's `CSI 1;m` forms, or kitty's when the child pushed `KeyboardFlags`.
+- Mouse coordinates are relative to the view; the child's mode and encoding decide what's sent.
+- A paste is wrapped when the child enabled `BracketedPaste`, and any `ESC` in it is removed so that pasted text can't end the paste early.
+- **Tests:** round trips against MiniTui's own decoder: encode, decode, compare, for every key and modifier it can report.
+- **Known limit:** a child can only receive what the outer terminal reports and MiniTui decodes. Key-release events aren't available. A real gap found here is filed against MiniTui (§7).
+
+### 11.4 Queries and clipboard
+Apps ask the terminal questions, and the emulator has to answer or they wait for a timeout.
+
+| Query | Reply |
+|---|---|
+| Device attributes (`CSI c`, `CSI > c`) | As a VT220-class terminal with the features implemented |
+| Status and cursor position (`CSI 5 n`, `CSI 6 n`) | Ready; the cursor's position |
+| Mode state (`DECRQM`), including 2026 | From `VtModes` |
+| Foreground and background color (OSC 10, 11) | From the shell's theme, so apps pick the right light or dark look |
+| Kitty keyboard flags (`CSI ? u`) | `KeyboardFlags` |
+| Anything else | No reply, as most terminals do |
+
+**OSC 52:** the sequence stops at the emulator, so the host forwards writes with `Clipboard.SetText`. **Decision:** clipboard reads from hosted apps are refused with an empty reply in v1, since any process in a PTY could otherwise read it silently.
+
+### 11.5 Tying it together
+
+```csharp
+public sealed class VtTerminal : IDisposable
+{
+    public static VtTerminal Start(VtStartInfo info);    // file, args, environment, working directory, size
+    public VtScreen Screen { get; }                      // read under Lock
+    public object Lock { get; }
+    public bool HasExited { get; }
+    public int? ExitCode { get; }
+    public event Action? Changed;                        // from the reader thread, coalesced; use App.Post
+    public event Action? Exited;
+    public bool HandleKey(ConsoleKeyInfo key);
+    public bool HandleMouse(MouseEvent mouse);
+    public void HandlePaste(string text);
+    public void Resize(int width, int height);
+    public void Kill();
+}
+
+public sealed class TerminalViewBuilder               // MiniTui's builder conventions
+{
+    public TerminalViewBuilder Terminal(VtTerminal terminal);
+    public TerminalViewBuilder Focused(bool focused = true);
+    public TerminalViewBuilder Block(BlockBuilder block);
+    public void Draw(CellBuffer buf, Rect area);       // resizes the terminal to fit, copies cells, sets the cursor
+}
+```
+
+- **Threads:** one reader thread per terminal feeds `VtScreen` under `Lock`. MiniTui's diffing and frame loop limit what reaches the real terminal, so a flood costs parsing, not drawing.
+- **Back-pressure:** the reader stops reading while a parse holds the lock, and the kernel's PTY buffer then blocks the child.
+- **Background apps** keep parsing, so they're current when switched to.
+
+### 11.6 Acceptance for Phase 0
+- [ ] §8 and §11 reviewed by Ben; each **Decision** accepted or changed.
+- [ ] §9 recorded as decided.
+- [ ] The Phase 1 spec section (with its own acceptance criteria) is written before 1a starts, using the vtm and desktop-tui friction list from §3.
