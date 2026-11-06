@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phase 0 in review. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phase 0 done; Phase 1 (§12) specced. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -95,7 +95,7 @@ Each phase gets its own spec section before implementation begins, with acceptan
 - Core changes (§7) are not specced now: Phase 1 and 2 don't need them, so they're specced when Phase 3 starts.
 - Exit: specs reviewed by Ben.
 
-**Phase 1 — Shell inside a terminal emulator**
+**Phase 1 — Shell inside a terminal emulator** (full spec: §12)
 - `MiniTui.Vt`:
   - PTY spawn via `openpty` and `posix_spawn` P/Invoke (§11.1), never `forkpty`, with resize by `TIOCSWINSZ`
   - VT parser (DEC/ANSI state machine) and screen model: SGR (16, 256 and truecolor), cursor movement, scroll regions, alternate screen, wide characters, synchronized output
@@ -103,7 +103,7 @@ Each phase gets its own spec section before implementation begins, with acceptan
   - Input encoding: keys, mouse and pastes back to bytes, following each child's modes (§11.3)
   - A `TerminalView` widget drawing into a `CellBuffer`
 - Shell: one foreground app at a time, filling the screen apart from a one-row status line.
-  - App switcher (command-palette style, using the existing `CommandPalette` and `Fuzzy`)
+  - App switcher, in most-recently-used order
   - Launcher driven by `~/.config/tuidesk/apps.json`
   - Status line: clock, app name, notification count
   - Notification queue with Do Not Disturb on by default; notifications are batched and viewed on demand
@@ -284,6 +284,7 @@ public interface IVtHost
     void Reply(ReadOnlySpan<byte> bytes);            // goes back to the child
     void SetClipboard(string text);
     void Bell();
+    void Notify(string? title, string body);         // OSC 9 and OSC 777 (§12.6)
 }
 
 public readonly record struct VtModes(
@@ -361,7 +362,124 @@ public sealed class TerminalViewBuilder               // MiniTui's builder conve
 - **Background apps** keep parsing, so they're current when switched to.
 
 ### 11.6 Acceptance for Phase 0
-- [ ] §8 and §11 reviewed by Ben; each **Decision** accepted or changed.
-- [ ] §9 recorded as decided.
+- [x] §8 and §11 reviewed by Ben; each **Decision** accepted or changed.
+- [x] §9 recorded as decided.
 - [x] The vtm and desktop-tui friction list from §3 is written.
-- [ ] The Phase 1 spec section is written before 1a starts.
+- [x] The Phase 1 spec section (§12) is written before 1a starts.
+
+## 12. Shell inside a terminal emulator (Phase 1)
+
+### 12.1 Purpose
+A daily terminal workspace: one app on the screen, one row of status, one prefix key, and nothing else. Everything in §11 is built here, and the shell on top of it. MiniTui itself doesn't change: `App.OnKey` sees keys before Ctrl+C and the focus chain, so the shell can pass everything through, and `WithKeyboardProtocol` is already on by default.
+
+### 12.2 Repo
+```
+src/MiniTui.Vt/           the §11 library, with PublicApiAnalyzers
+src/MiniTui.Desk/         the tuidesk executable
+tests/MiniTui.Vt.Tests/
+tests/MiniTui.Desk.Tests/
+```
+- Both reference the `MiniTui` 2.1.0 NuGet package, not a source checkout.
+- The build gate is MiniTui's: `-warnaserror`, xUnit, and CI on Ubuntu. Every PR updates `CHANGELOG.md`.
+- Nothing is published in Phase 1.
+
+### 12.3 Screen and keys
+The top rows are the foreground app, full width. The last row is the status line: app name, the app's title (OSC 0/2), notification count, clock. Do Not Disturb shows as a muted marker.
+
+Every key goes to the foreground app except the prefix, `Ctrl+Space` by default. After the prefix, one key:
+
+| Key | Action |
+|---|---|
+| `Tab` | The switcher (§12.4) |
+| `Space` | The launcher (§12.4) |
+| `1`–`9` | The app at that position |
+| `n` | Notifications (§12.6) |
+| `d` | Toggle Do Not Disturb |
+| `x` | Close the app (§12.5) |
+| `q` | Quit Desk, confirming if apps are running |
+| `?` | Help |
+| The prefix again | Send it to the app |
+| `Esc`, or anything else | Cancel |
+
+While waiting for that key, the status line shows the choices, and there's no timeout. Pastes go to the app, wrapped by §11.3.
+
+The mouse goes to the app when it asked for mouse events, with no shell interpretation. Clicks on the status line open the switcher. The shell uses `WithMouse` and `WithHover`, since a hosted app may ask for any-motion events. Focus reporting (mode 1004) is sent to apps that enabled it when they're switched to and from.
+
+### 12.4 Switcher and launcher
+**Decision:** two lists, each with one job, both behind the prefix so that `Ctrl+Space` stays the only key taken from hosted apps.
+
+- **Switcher (`Tab`):** running apps in most-recently-used order, with the previous app selected, so `Ctrl+Space`, `Tab`, `Enter` goes back to it. It can't start anything.
+- **Launcher (`Space`):** apps from `apps.json`, plus a shell. It always starts a new instance.
+
+Alt+Tab isn't used: Windows and most Linux desktops take it before the terminal sees it, and a terminal usually can't report Alt's release. `Alt+Tab` can be offered as an optional binding once Phase 3's bare console exists.
+
+`CommandPalette` is sealed, titled " Commands ", and can't start on a chosen row, so both lists are a small `Overlay` in `MiniTui.Desk`, using `Fuzzy` for matching.
+
+### 12.5 App lifecycle
+- **Start:** with no config, Desk opens `$SHELL`, falling back to `/bin/sh`.
+- **Environment:** the shell's, with `TERM=xterm-256color`, `COLORTERM=truecolor`, and `TERM_PROGRAM=tuidesk`.
+- **Exit 0, or Ctrl+C (exit 130, or killed by SIGINT):** the app closes and the previous one comes to the front.
+- **Any other non-zero exit, or killed by another signal:** the last screen stays, frozen, and the status line says how it ended (`exited 1`, `killed by SIGKILL`) with `r` to restart and `c` to close. In the background, it also adds a notification.
+- **Decision: the last app closing** opens the launcher rather than quitting, so typing `exit` once doesn't end the session.
+- **Close (`x`):** SIGHUP, then SIGKILL after 3 seconds. No protocol is involved until Phase 2.
+- **Quit:** closes every app the same way, then restores the terminal.
+- **Resize:** every app is resized when the terminal is, including background ones, so they're right when switched to.
+
+### 12.6 Notifications
+Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
+- OSC 9 and OSC 777 notifications.
+- A bell from a background app ("Name wants attention"). A bell from the foreground app does nothing.
+- A background app ending with a failure (§12.5).
+
+**Do Not Disturb is on by default:** notifications only increase the count, and `prefix n` lists them. With it off, they also appear as a toast. The queue is capped at 100, dropping the oldest, and doesn't survive a restart.
+
+### 12.7 Config
+`~/.config/tuidesk/config.json` and `apps.json`. Both are optional, read at startup, and parsed with System.Text.Json source generation. A broken file doesn't stop Desk: it's ignored, with a notification saying why.
+
+```json
+{ "prefix": "ctrl+space", "doNotDisturb": true }
+```
+```json
+[{ "id": "k9s", "name": "Kubernetes", "command": "k9s", "args": [], "cwd": "~", "env": {} }]
+```
+
+### 12.8 Limits accepted for v1
+- **Cursor shape (DECSCUSR):** ignored, since `CellBuffer` can only place the cursor. A §7 candidate, with undercurl.
+- **Graphics** (Sixel, kitty images): dropped, since a `Cell` holds text.
+- **Nesting** `tuidesk` inside itself works, but the inner one only gets the prefix when it's sent twice.
+- **No scrollback, session restore, or detach.** Hosted apps and the terminal handle their own scrollback.
+
+### 12.9 Sub-phases and acceptance
+
+**1a — Repo and PTY.** `PtyProcess`: the §11.1 spawn, with working directory, environment, resize, kill, and exit status.
+- [ ] CI builds and tests on Ubuntu.
+- [ ] Tests start real children and check the controlling terminal, size, `SIGWINCH`, Ctrl+C, signal mask and exit status.
+- [ ] The test suite passes under a Native AOT build of a small host, and alongside `System.Diagnostics.Process`.
+
+**1b — Parser and screen.** `VtScreen`, with golden-screen tests.
+- [ ] SGR, cursor movement, scroll regions, insert and delete, alternate screen, wide characters and combining marks, line wrap, and resize.
+- [ ] UTF-8 and escape sequences split across any `Feed` boundary give the same screen.
+- [ ] Malformed input never throws, tested with random bytes.
+- [ ] `vttest`'s cursor, screen and SGR menus are checked by hand and the results recorded.
+- [ ] Recorded sessions of nvim and htop replay to the expected screens.
+
+**1c — Input and replies.** `VtInput`, `VtTerminal`, `TerminalViewBuilder`, query replies, OSC 52, and synchronized output.
+- [ ] Round-trip tests against MiniTui's decoder, for every key and modifier it can report.
+- [ ] A byte probe receives what bare tmux receives, for every key in [PRIOR-ART.md](PRIOR-ART.md).
+- [ ] Each query in §11.4 gets its reply, and a hosted app can't read the clipboard.
+- [ ] A small example embeds a shell pane in an ordinary MiniTui app.
+
+**1d — The shell.** §12.3 to §12.7.
+- [ ] Shell behaviour is tested with `TestBackend` and `ScriptedInputSource`.
+- [ ] End-to-end tests run `tuidesk` itself inside a `VtTerminal`, hosting real children, covering the rest of this list.
+- [ ] Every key but the prefix reaches the app, unchanged.
+- [ ] A hosted app gets the full terminal minus one row, and follows a resize with nothing off-screen.
+- [ ] Everything works without a mouse, and with no config.
+- [ ] A crashed app keeps its screen and says how it ended.
+- [ ] Ctrl+C during `yes` gets back to a prompt in under 500 ms.
+- [ ] nvim starts with no terminal-response warning, and htop and k9s draw correctly.
+- [ ] Claude Code runs correctly, including Shift+Enter when the outer terminal reports it.
+- [ ] Ben uses it for a working session.
+
+### 12.10 Out of scope
+The protocol and socket (Phase 2), splits, floating windows, session persistence, themes beyond MiniTui's light and dark, and packaging.
