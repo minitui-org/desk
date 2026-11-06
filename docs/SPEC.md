@@ -438,7 +438,7 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 
 ### 12.8 Limits accepted for v1
 - **Cursor shape (DECSCUSR):** ignored, since `CellBuffer` can only place the cursor. A §7 candidate, with undercurl.
-- **Mouse-reporting and terminal features MiniTui doesn't expose,** such as Sixel and kitty graphics: dropped.
+- **Graphics** (Sixel, kitty images): dropped, since a `Cell` holds text.
 - **Nesting** `tuidesk` inside itself works, but the inner one only gets the prefix when it's sent twice.
 - **No scrollback, session restore, or detach.** Hosted apps and the terminal handle their own scrollback.
 
