@@ -103,7 +103,7 @@ Each phase gets its own spec section before implementation begins, with acceptan
   - Input encoding: keys, mouse and pastes back to bytes, following each child's modes (§11.3)
   - A `TerminalView` widget drawing into a `CellBuffer`
 - Shell: one foreground app at a time, filling the screen apart from a one-row status line.
-  - App switcher (command-palette style, using the existing `CommandPalette` and `Fuzzy`)
+  - App switcher, in most-recently-used order
   - Launcher driven by `~/.config/tuidesk/apps.json`
   - Status line: clock, app name, notification count
   - Notification queue with Do Not Disturb on by default; notifications are batched and viewed on demand
@@ -390,8 +390,8 @@ Every key goes to the foreground app except the prefix, `Ctrl+Space` by default.
 
 | Key | Action |
 |---|---|
-| `Space` | The palette (§12.4) |
-| `Tab` | The previous app |
+| `Tab` | The switcher (§12.4) |
+| `Space` | The launcher (§12.4) |
 | `1`–`9` | The app at that position |
 | `n` | Notifications (§12.6) |
 | `d` | Toggle Do Not Disturb |
@@ -403,17 +403,24 @@ Every key goes to the foreground app except the prefix, `Ctrl+Space` by default.
 
 While waiting for that key, the status line shows the choices, and there's no timeout. Pastes go to the app, wrapped by §11.3.
 
-The mouse goes to the app when it asked for mouse events, with no shell interpretation. Clicks on the status line open the palette. The shell uses `WithMouse` and `WithHover`, since a hosted app may ask for any-motion events. Focus reporting (mode 1004) is sent to apps that enabled it when they're switched to and from.
+The mouse goes to the app when it asked for mouse events, with no shell interpretation. Clicks on the status line open the switcher. The shell uses `WithMouse` and `WithHover`, since a hosted app may ask for any-motion events. Focus reporting (mode 1004) is sent to apps that enabled it when they're switched to and from.
 
-### 12.4 The palette
-**Decision:** the switcher and the launcher are one `CommandPalette`: running apps first, in most-recently-used order, then apps from `apps.json`. One surface means one thing to learn. Choosing a running app switches to it, and choosing a configured app starts a new instance.
+### 12.4 Switcher and launcher
+**Decision:** two lists, each with one job, both behind the prefix so that `Ctrl+Space` stays the only key taken from hosted apps.
+
+- **Switcher (`Tab`):** running apps in most-recently-used order, with the previous app selected, so `Ctrl+Space`, `Tab`, `Enter` goes back to it. It can't start anything.
+- **Launcher (`Space`):** apps from `apps.json`, plus a shell. It always starts a new instance.
+
+Alt+Tab isn't used: Windows and most Linux desktops take it before the terminal sees it, and a terminal usually can't report Alt's release. `Alt+Tab` can be offered as an optional binding once Phase 3's bare console exists.
+
+`CommandPalette` is sealed, titled " Commands ", and can't start on a chosen row, so both lists are a small `Overlay` in `MiniTui.Desk`, using `Fuzzy` for matching.
 
 ### 12.5 App lifecycle
 - **Start:** with no config, Desk opens `$SHELL`, falling back to `/bin/sh`.
 - **Environment:** the shell's, with `TERM=xterm-256color`, `COLORTERM=truecolor`, and `TERM_PROGRAM=tuidesk`.
 - **Exit 0:** the app closes and the previous one comes to the front.
 - **Non-zero exit, or killed by a signal:** the last screen stays, frozen, and the status line says how it ended (`exited 1`, `killed by SIGKILL`) with `r` to restart and `c` to close. In the background, it also adds a notification.
-- **Decision: the last app closing** opens the palette rather than quitting, so typing `exit` once doesn't end the session.
+- **Decision: the last app closing** opens the launcher rather than quitting, so typing `exit` once doesn't end the session.
 - **Close (`x`):** SIGHUP, then SIGKILL after 3 seconds. No protocol is involved until Phase 2.
 - **Quit:** closes every app the same way, then restores the terminal.
 - **Resize:** every app is resized when the terminal is, including background ones, so they're right when switched to.
