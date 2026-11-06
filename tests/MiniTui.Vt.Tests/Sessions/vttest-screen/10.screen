@@ -1,0 +1,25 @@
+30 22 1
+                   Graphic rendition test pattern:                              
+
+
+vanilla                                [1mbold[0m                                     
+
+     [4munderline[0m                              [1;4mbold underline[0m                      
+
+[5mblink[0m                                  [1;5mbold blink[0m                               
+
+     [4;5munderline blink[0m                        [1;4;5mbold underline blink[0m                
+
+[7mnegative[0m                               [1;7mbold negative[0m                            
+
+     [4;7munderline negative[0m                     [1;4;7mbold underline negative[0m             
+
+[5;7mblink negative[0m                         [1;5;7mbold blink negative[0m                      
+
+     [4;5;7munderline blink negative[0m               [1;4;5;7mbold underline blink negative[0m       
+
+
+
+
+Dark background. Push <RETURN>          
+

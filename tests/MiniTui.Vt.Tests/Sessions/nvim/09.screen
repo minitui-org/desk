@@ -1,0 +1,25 @@
+48 0 1
+[38;2;224;226;234m[48;2;20;22;27m                                                [1m]8;id=3790209024;https://neovim.io/doc/user/helptag/?tag=%7bmotion%7d\{motion}[0m[38;2;224;226;234m[48;2;20;22;27m]8;;\ [1m]8;id=3790209025;https://neovim.io/doc/user/helptag/?tag=movement\movement[0m[48;2;20;22;27m]8;;\               
+[38;2;224;226;234m- {motion}      A command that moves the cursor.  These are explained in[39m        
+[38;2;224;226;234m                [4m]8;id=3790209026;https://neovim.io/doc/user/helptag/?tag=motion.txt\motion.txt[0m[38;2;224;226;234m[48;2;20;22;27m]8;;\.   [39m                                                  
+[38;2;224;226;234m                - Examples:[39m                                                     
+[38;2;224;226;234m                  - [38;2;140;248;247mw[38;2;224;226;234m           to start of next word[39m                           
+[38;2;224;226;234m                  - [38;2;140;248;247mb[38;2;224;226;234m           to begin of current word[39m                        
+[38;2;224;226;234m                  - [38;2;140;248;247m4j[38;2;224;226;234m          four lines down[39m                                 
+[38;2;224;226;234m                  - [38;2;140;248;247m/The<CR>[38;2;224;226;234m    to next occurrence of "The"[39m                     
+[38;2;224;226;234m                - This is used after an [4m]8;id=3790209027;https://neovim.io/doc/user/helptag/?tag=operator\operator[0m[38;2;224;226;234m[48;2;20;22;27m]8;;\ command to move over the[39m       
+[38;2;224;226;234m                  text that is to be operated upon.[39m                             
+[38;2;224;226;234m                  - If the motion includes a count and the operator also has[39m    
+[38;2;224;226;234m                    a count, the two counts are multiplied.  For example:[39m       
+[38;2;224;226;234m                    "2d3w" deletes six words.[39m                                   
+[38;2;224;226;234m                  - The motion can be backwards, e.g. "db" to delete to the[39m     
+[38;2;224;226;234m                    start of the word.[39m                                          
+[38;2;224;226;234m                  - The motion can also be a mouse click.  The mouse is not[39m     
+[38;2;224;226;234m                    supported in every terminal though.[39m                         
+[38;2;224;226;234m                  - The ":omap" command can be used to map characters while an[39m  
+[38;2;224;226;234m                    operator is pending.[39m                                        
+[38;2;224;226;234m                  - Ex commands can be used to move the cursor.  This can be[39m    
+[38;2;224;226;234m[48;2;79;82;88mhelphelp.txt [Help][-][RO]                                    82,49          15%
+[38;2;79;82;88m[48;2;20;22;27m  9 [1m[38;2;224;226;234mend[0m[48;2;20;22;27m                                                                         
+[38;2;196;198;205m[48;2;44;46;51mfixture.lua [+]                                               9,3            Bot
+[38;2;224;226;234m[48;2;20;22;27m:help[39m [38;2;224;226;234mmotion[39m                                                         [38;2;224;226;234m   [39m        

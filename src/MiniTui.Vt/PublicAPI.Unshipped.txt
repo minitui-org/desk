@@ -18,6 +18,48 @@ MiniTui.Vt.PtyProcess.Pid.get -> int
 MiniTui.Vt.PtyProcess.Read(System.Span<byte> buffer) -> int
 MiniTui.Vt.PtyProcess.Resize(int width, int height) -> void
 MiniTui.Vt.PtyProcess.Write(System.ReadOnlySpan<byte> bytes) -> void
+MiniTui.Vt.VtModes
+MiniTui.Vt.VtModes.AlternateScreen.get -> bool
+MiniTui.Vt.VtModes.AlternateScreen.init -> void
+MiniTui.Vt.VtModes.ApplicationCursorKeys.get -> bool
+MiniTui.Vt.VtModes.ApplicationCursorKeys.init -> void
+MiniTui.Vt.VtModes.ApplicationKeypad.get -> bool
+MiniTui.Vt.VtModes.ApplicationKeypad.init -> void
+MiniTui.Vt.VtModes.BracketedPaste.get -> bool
+MiniTui.Vt.VtModes.BracketedPaste.init -> void
+MiniTui.Vt.VtModes.Deconstruct(out bool AlternateScreen, out bool ApplicationCursorKeys, out bool ApplicationKeypad, out bool BracketedPaste, out MiniTui.Vt.VtMouseMode Mouse, out MiniTui.Vt.VtMouseEncoding MouseEncoding, out int KeyboardFlags, out bool SynchronizedOutput) -> void
+MiniTui.Vt.VtModes.Equals(MiniTui.Vt.VtModes other) -> bool
+MiniTui.Vt.VtModes.KeyboardFlags.get -> int
+MiniTui.Vt.VtModes.KeyboardFlags.init -> void
+MiniTui.Vt.VtModes.Mouse.get -> MiniTui.Vt.VtMouseMode
+MiniTui.Vt.VtModes.Mouse.init -> void
+MiniTui.Vt.VtModes.MouseEncoding.get -> MiniTui.Vt.VtMouseEncoding
+MiniTui.Vt.VtModes.MouseEncoding.init -> void
+MiniTui.Vt.VtModes.SynchronizedOutput.get -> bool
+MiniTui.Vt.VtModes.SynchronizedOutput.init -> void
+MiniTui.Vt.VtModes.VtModes() -> void
+MiniTui.Vt.VtModes.VtModes(bool AlternateScreen, bool ApplicationCursorKeys, bool ApplicationKeypad, bool BracketedPaste, MiniTui.Vt.VtMouseMode Mouse, MiniTui.Vt.VtMouseEncoding MouseEncoding, int KeyboardFlags, bool SynchronizedOutput) -> void
+MiniTui.Vt.VtMouseEncoding
+MiniTui.Vt.VtMouseEncoding.Default = 0 -> MiniTui.Vt.VtMouseEncoding
+MiniTui.Vt.VtMouseEncoding.Sgr = 2 -> MiniTui.Vt.VtMouseEncoding
+MiniTui.Vt.VtMouseEncoding.Urxvt = 3 -> MiniTui.Vt.VtMouseEncoding
+MiniTui.Vt.VtMouseEncoding.Utf8 = 1 -> MiniTui.Vt.VtMouseEncoding
+MiniTui.Vt.VtMouseMode
+MiniTui.Vt.VtMouseMode.AnyEvent = 4 -> MiniTui.Vt.VtMouseMode
+MiniTui.Vt.VtMouseMode.ButtonEvent = 3 -> MiniTui.Vt.VtMouseMode
+MiniTui.Vt.VtMouseMode.None = 0 -> MiniTui.Vt.VtMouseMode
+MiniTui.Vt.VtMouseMode.Normal = 2 -> MiniTui.Vt.VtMouseMode
+MiniTui.Vt.VtMouseMode.X10 = 1 -> MiniTui.Vt.VtMouseMode
+MiniTui.Vt.VtScreen
+MiniTui.Vt.VtScreen.Cursor.get -> (int X, int Y)?
+MiniTui.Vt.VtScreen.Feed(System.ReadOnlySpan<byte> bytes) -> void
+MiniTui.Vt.VtScreen.Height.get -> int
+MiniTui.Vt.VtScreen.Modes.get -> MiniTui.Vt.VtModes
+MiniTui.Vt.VtScreen.Resize(int width, int height) -> void
+MiniTui.Vt.VtScreen.Title.get -> string?
+MiniTui.Vt.VtScreen.VtScreen(int width, int height) -> void
+MiniTui.Vt.VtScreen.Width.get -> int
+MiniTui.Vt.VtScreen.this[int x, int y].get -> MiniTui.Cell
 MiniTui.Vt.VtStartInfo
 MiniTui.Vt.VtStartInfo.<Clone>$() -> MiniTui.Vt.VtStartInfo!
 MiniTui.Vt.VtStartInfo.Args.get -> System.Collections.Generic.IReadOnlyList<string!>!
@@ -37,12 +79,17 @@ MiniTui.Vt.VtStartInfo.WorkingDirectory.get -> string?
 MiniTui.Vt.VtStartInfo.WorkingDirectory.init -> void
 override MiniTui.Vt.PtyExit.GetHashCode() -> int
 override MiniTui.Vt.PtyExit.ToString() -> string!
+override MiniTui.Vt.VtModes.GetHashCode() -> int
 override MiniTui.Vt.VtStartInfo.Equals(object? obj) -> bool
 override MiniTui.Vt.VtStartInfo.GetHashCode() -> int
 override MiniTui.Vt.VtStartInfo.ToString() -> string!
 static MiniTui.Vt.PtyExit.operator !=(MiniTui.Vt.PtyExit left, MiniTui.Vt.PtyExit right) -> bool
 static MiniTui.Vt.PtyExit.operator ==(MiniTui.Vt.PtyExit left, MiniTui.Vt.PtyExit right) -> bool
 static MiniTui.Vt.PtyProcess.Start(MiniTui.Vt.VtStartInfo! info) -> MiniTui.Vt.PtyProcess!
+static MiniTui.Vt.VtModes.operator !=(MiniTui.Vt.VtModes left, MiniTui.Vt.VtModes right) -> bool
+static MiniTui.Vt.VtModes.operator ==(MiniTui.Vt.VtModes left, MiniTui.Vt.VtModes right) -> bool
 static MiniTui.Vt.VtStartInfo.operator !=(MiniTui.Vt.VtStartInfo? left, MiniTui.Vt.VtStartInfo? right) -> bool
 static MiniTui.Vt.VtStartInfo.operator ==(MiniTui.Vt.VtStartInfo? left, MiniTui.Vt.VtStartInfo? right) -> bool
 ~override MiniTui.Vt.PtyExit.Equals(object obj) -> bool
+~override MiniTui.Vt.VtModes.Equals(object obj) -> bool
+~override MiniTui.Vt.VtModes.ToString() -> string

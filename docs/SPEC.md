@@ -267,7 +267,7 @@ namespace MiniTui.Vt;
 
 public sealed class VtScreen
 {
-    public VtScreen(int width, int height, int scrollback = 0);
+    public VtScreen(int width, int height);
     public int Width { get; }
     public int Height { get; }
     public Cell this[int x, int y] { get; }          // MiniTui's Cell, so drawing is a copy
@@ -295,7 +295,9 @@ public readonly record struct VtModes(
 - **`TERM`** is `xterm-256color`, so hosted apps need no terminfo entry of ours.
 - **Styles `Cell` can't hold:** curly and coloured underlines become a plain underline; blink and OSC 8 hyperlinks are dropped (§7).
 - **Synchronized output (mode 2026):** `TerminalView` draws the last complete frame until the mode ends, or for at most 200 ms.
-- **Scrollback** is off in the shell for v1. The parameter is there so an embedded pane can use it.
+- **Scrollback** isn't in v1. A parameter with no way to read the lines back wouldn't do anything, so the constructor gains one when an embedded pane needs it.
+- **`Host` and `IVtHost`** arrive in 1c with the replies they carry. 1b parses those sequences and ignores them.
+- **Where xterm and tmux differ,** `TERM` promises xterm, so xterm's behaviour wins. [VTTEST.md](VTTEST.md) lists the cases.
 
 ### 11.3 Input encoding
 The shell gets decoded keys, and MiniTui has nothing that turns them back into bytes.
@@ -457,11 +459,12 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 - [x] The test suite passes under a Native AOT build of a small host, and alongside `System.Diagnostics.Process`.
 
 **1b — Parser and screen.** `VtScreen`, with golden-screen tests.
-- [ ] SGR, cursor movement, scroll regions, insert and delete, alternate screen, wide characters and combining marks, line wrap, and resize.
-- [ ] UTF-8 and escape sequences split across any `Feed` boundary give the same screen.
-- [ ] Malformed input never throws, tested with random bytes.
-- [ ] `vttest`'s cursor, screen and SGR menus are checked by hand and the results recorded.
-- [ ] Recorded sessions of nvim and htop replay to the expected screens.
+- [x] SGR, cursor movement, scroll regions, insert and delete, alternate screen, wide characters and combining marks, line wrap, and resize.
+- [x] UTF-8 and escape sequences split across any `Feed` boundary give the same screen.
+- [x] Malformed input never throws, tested with random bytes.
+- [x] `vttest`'s cursor and screen menus (SGR is part of the screen menu) are checked and the results recorded in [VTTEST.md](VTTEST.md).
+- [x] Recorded sessions of nvim and htop replay to the expected screens.
+- [x] Generated control sequences match tmux, and `tools/vt_golden.py` regenerates every expected screen.
 
 **1c — Input and replies.** `VtInput`, `VtTerminal`, `TerminalViewBuilder`, query replies, OSC 52, and synchronized output.
 - [ ] Round-trip tests against MiniTui's decoder, for every key and modifier it can report.

@@ -1,0 +1,25 @@
+13 23 1
+AAAAA               
+AAAAA               
+AAAAA               
+AAAAA               
+
+
+
+           normal      bold        underscored blinking    reversed             
+
+stars:     **********  [1m**********[0m  [4m**********[0m  [5m**********[0m  [7m**********[0m           
+
+line:      qqqqqqqqqq  [1mqqqqqqqqqq[0m  [4mqqqqqqqqqq[0m  [5mqqqqqqqqqq[0m  [7mqqqqqqqqqq[0m           
+
+x'es:      xxxxxxxxxx  [1mxxxxxxxxxx[0m  [4mxxxxxxxxxx[0m  [5mxxxxxxxxxx[0m  [7mxxxxxxxxxx[0m           
+
+diamonds:  ``````````  [1m``````````[0m  [4m``````````[0m  [5m``````````[0m  [7m``````````[0m           
+
+
+
+
+Test of the SAVE/RESTORE CURSOR feature. There should                           
+be ten characters of each flavour, and a rectangle                              
+of 5 x 4 A's filling the top left of the screen.                                
+Push <RETURN>       

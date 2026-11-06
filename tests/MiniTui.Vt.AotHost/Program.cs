@@ -25,6 +25,13 @@ Check("signals", signals.Output.Contains("SigBlk:\t0000000000000000", StringComp
 var killed = Run("kill -9 $$", new VtStartInfo("bash"));
 Check("signal status", killed.Exit == new PtyExit(null, 9));
 
+var screen = new VtScreen(20, 4);
+screen.Feed("\u001b[1;31mhe\u001b]2;t\u001b\\llo \u65e5e\u0301\u001b(0q\u001b(B\u001b[?2004h"u8);
+Check("screen text", screen[0, 0].Symbol == "h" && screen[6, 0].Symbol == "\u65e5" && screen[7, 0].IsContinuation
+    && screen[8, 0].Symbol == "e\u0301" && screen[9, 0].Symbol == "\u2500");
+Check("screen style", screen[0, 0].Fg == MiniTui.Color.DarkRed && screen[0, 0].Modifiers == MiniTui.Modifiers.Bold);
+Check("screen state", screen.Title == "t" && screen.Modes.BracketedPaste);
+
 using (var ctrlC = PtyProcess.Start(new VtStartInfo("bash") { Args = ["-c", "trap 'exit 42' INT; trap 'stty size' WINCH; echo ready; while :; do sleep 0.01; done"] }))
 {
     var output = new StringBuilder();
