@@ -566,7 +566,7 @@ public sealed class VtScreenTests
     public void Modes_FollowWhatTheProgramSets()
     {
         var screen = Screen("\u001b[?1h\u001b=\u001b[?2004h\u001b[?1002h\u001b[?1006h\u001b[?2026h");
-        Assert.Equal(new VtModes(false, true, true, true, VtMouseMode.ButtonEvent, VtMouseEncoding.Sgr, 0, true), screen.Modes);
+        Assert.Equal(new VtModes(false, true, true, true, VtMouseMode.ButtonEvent, VtMouseEncoding.Sgr, 0, true, false), screen.Modes);
         Feed(screen, "\u001b[?1l\u001b>\u001b[?2004l\u001b[?1002l\u001b[?1006l\u001b[?2026l");
         Assert.Equal(default, screen.Modes);
     }
@@ -597,7 +597,7 @@ public sealed class VtScreenTests
 
     [Fact]
     public void ManyModes_InOneSequence() =>
-        Assert.Equal(new VtModes(false, true, false, true, VtMouseMode.None, VtMouseEncoding.Default, 0, false), Screen("\u001b[?1;2004h").Modes);
+        Assert.Equal(new VtModes(false, true, false, true, VtMouseMode.None, VtMouseEncoding.Default, 0, false, false), Screen("\u001b[?1;2004h").Modes);
 
     [Fact]
     public void NewLineMode_LineFeedAlsoReturns() => Assert.Equal("a\nb", Text("\u001b[20ha\nb"));

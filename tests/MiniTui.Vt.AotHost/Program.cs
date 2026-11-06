@@ -32,6 +32,31 @@ Check("screen text", screen[0, 0].Symbol == "h" && screen[6, 0].Symbol == "\u65e
 Check("screen style", screen[0, 0].Fg == MiniTui.Color.DarkRed && screen[0, 0].Modifiers == MiniTui.Modifiers.Bold);
 Check("screen state", screen.Title == "t" && screen.Modes.BracketedPaste);
 
+var encoded = new System.Buffers.ArrayBufferWriter<byte>();
+Check("key encoding", VtInput.TryEncode(new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, false, true, false), default, encoded)
+    && encoded.WrittenSpan.SequenceEqual("\u001b[1;3D"u8));
+
+using (var hosted = VtTerminal.Start(new VtStartInfo("bash") { Args = ["-c", "stty raw -echo; printf '\\e[?2004h\\e[5;5H\\e[6n'; IFS= read -rsd R pos; printf '\\e[Hreply=%s;' \"${pos#*[}\"; IFS= read -rsn1 key; printf 'key=%s;' \"$key\"; exit 7"], Width = 40, Height = 5 }))
+{
+    var changes = 0;
+    var ended = new ManualResetEventSlim();
+    hosted.Changed += () => Interlocked.Increment(ref changes);
+    hosted.Exited += ended.Set;
+    var sent = false;
+    for (var i = 0; i < 500 && !sent; i++)
+    {
+        Thread.Sleep(10);
+        lock (hosted.Lock) sent = hosted.Screen[0, 0].Symbol == "r";
+    }
+    hosted.HandleKey(new ConsoleKeyInfo('x', ConsoleKey.X, false, false, false));
+    Check("terminal exit", ended.Wait(TimeSpan.FromSeconds(10)) && hosted.Exit == new PtyExit(7, null));
+
+    var buffer = new MiniTui.CellBuffer(40, 5);
+    new TerminalViewBuilder().Terminal(hosted).Draw(buffer, buffer.Area);
+    Check("terminal replies and keys", buffer.ToLines()[0].StartsWith("reply=5;5;key=x;", StringComparison.Ordinal));
+    Check("terminal changed", Volatile.Read(ref changes) > 0);
+}
+
 using (var ctrlC = PtyProcess.Start(new VtStartInfo("bash") { Args = ["-c", "trap 'exit 42' INT; trap 'stty size' WINCH; echo ready; while :; do sleep 0.01; done"] }))
 {
     var output = new StringBuilder();

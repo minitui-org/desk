@@ -275,6 +275,8 @@ public sealed class VtScreen
     public string? Title { get; }
     public VtModes Modes { get; }
     public IVtHost? Host { get; set; }               // replies, clipboard, bell
+    public Color DefaultForeground { get; set; }     // what OSC 10 and 11 report
+    public Color DefaultBackground { get; set; }
     public void Feed(ReadOnlySpan<byte> bytes);      // handles UTF-8 split across calls
     public void Resize(int width, int height);
 }
@@ -289,14 +291,13 @@ public interface IVtHost
 
 public readonly record struct VtModes(
     bool AlternateScreen, bool ApplicationCursorKeys, bool ApplicationKeypad, bool BracketedPaste,
-    VtMouseMode Mouse, VtMouseEncoding MouseEncoding, int KeyboardFlags, bool SynchronizedOutput);
+    VtMouseMode Mouse, VtMouseEncoding MouseEncoding, int KeyboardFlags, bool SynchronizedOutput, bool FocusReporting);
 ```
 
 - **`TERM`** is `xterm-256color`, so hosted apps need no terminfo entry of ours.
 - **Styles `Cell` can't hold:** curly and coloured underlines become a plain underline; blink and OSC 8 hyperlinks are dropped (§7).
 - **Synchronized output (mode 2026):** `TerminalView` draws the last complete frame until the mode ends, or for at most 200 ms.
 - **Scrollback** isn't in v1. A parameter with no way to read the lines back wouldn't do anything, so the constructor gains one when an embedded pane needs it.
-- **`Host` and `IVtHost`** arrive in 1c with the replies they carry. 1b parses those sequences and ignores them.
 - **Where xterm and tmux differ,** `TERM` promises xterm, so xterm's behaviour wins. [VTTEST.md](VTTEST.md) lists the cases.
 
 ### 11.3 Input encoding
@@ -308,28 +309,34 @@ public static class VtInput
     public static bool TryEncode(ConsoleKeyInfo key, VtModes modes, IBufferWriter<byte> output);
     public static bool TryEncode(MouseEvent mouse, VtModes modes, IBufferWriter<byte> output);  // false if the child didn't ask for it
     public static void EncodePaste(string text, VtModes modes, IBufferWriter<byte> output);
+    public static bool TryEncodeFocus(bool focused, VtModes modes, IBufferWriter<byte> output);  // mode 1004, for §12.3
 }
 ```
 
 - Cursor keys follow `ApplicationCursorKeys`. Modified keys use xterm's `CSI 1;m` forms, or kitty's when the child pushed `KeyboardFlags`.
+- **A key is encoded for the child, not copied from the outer terminal.** Shift+Enter reported in kitty's form reaches a child that didn't ask for kitty as `\r`, as it would from xterm, since a program like bash would otherwise print the sequence as text.
+- **Not offered:** xterm's modifyOtherKeys (`CSI > 4 ; 2 m`) is ignored, as a program that asks for it falls back to the legacy forms, and kitty's alternate keys (flag 4) aren't sent, as they're optional in the protocol.
 - Mouse coordinates are relative to the view; the child's mode and encoding decide what's sent.
-- A paste is wrapped when the child enabled `BracketedPaste`, and any `ESC` in it is removed so that pasted text can't end the paste early.
-- **Tests:** round trips against MiniTui's own decoder: encode, decode, compare, for every key and modifier it can report.
-- **Known limit:** a child can only receive what the outer terminal reports and MiniTui decodes. Key-release events aren't available. A real gap found here is filed against MiniTui (§7).
+- A paste is wrapped when the child enabled `BracketedPaste`, and any `ESC` in it is removed so that pasted text can't end the paste early. Line breaks become carriage returns, as from a keyboard.
+- **Tests:** round trips against MiniTui's own decoder: encode, decode, compare, for every key and modifier it can report. `tools/key_probe.py` compares the bytes a real program receives with bare tmux. Results are in [VTTEST.md](VTTEST.md).
+- **Known limit:** a child can only receive what the outer terminal reports and MiniTui decodes. Key-release events aren't available.
+- **Gap found in MiniTui (§7):** on an outer terminal without a keyboard protocol, MiniTui decodes byte `0x0A` as Enter, so Ctrl+J reaches the child as `\r` rather than `\n`. With kitty or win32-input-mode, Ctrl+J is reported as itself and arrives correctly.
 
 ### 11.4 Queries and clipboard
 Apps ask the terminal questions, and the emulator has to answer or they wait for a timeout.
 
 | Query | Reply |
 |---|---|
-| Device attributes (`CSI c`, `CSI > c`) | As a VT220-class terminal with the features implemented |
+| Device attributes (`CSI c`, `CSI > c`) | `CSI ? 62 ; 22 c` (VT220 with color), and `CSI > 1 ; 10 ; 0 c` |
 | Status and cursor position (`CSI 5 n`, `CSI 6 n`) | Ready; the cursor's position |
 | Mode state (`DECRQM`), including 2026 | From `VtModes` |
-| Foreground and background color (OSC 10, 11) | From the shell's theme, so apps pick the right light or dark look |
+| Foreground and background color (OSC 10, 11) | What the host sets, so apps pick the right light or dark look. A hosted app draws on the real terminal's default colors, so the host passes on `App.TerminalInfo`, not its theme. xterm's defaults until it's told |
 | Kitty keyboard flags (`CSI ? u`) | `KeyboardFlags` |
 | Anything else | No reply, as most terminals do |
 
 **OSC 52:** the sequence stops at the emulator, so the host forwards writes with `Clipboard.SetText`. **Decision:** clipboard reads from hosted apps are refused with an empty reply in v1, since any process in a PTY could otherwise read it silently.
+
+**OSC 9:** ConEmu uses the same number for other things, such as `9;4` for progress bars, so a body starting with a number and a semicolon isn't a notification.
 
 ### 11.5 Tying it together
 
@@ -338,15 +345,21 @@ public sealed class VtTerminal : IDisposable
 {
     public static VtTerminal Start(VtStartInfo info);    // file, args, environment, working directory, size
     public VtScreen Screen { get; }                      // read under Lock
-    public object Lock { get; }
+    public Lock Lock { get; }
+    public int Pid { get; }
     public bool HasExited { get; }
-    public int? ExitCode { get; }
-    public event Action? Changed;                        // from the reader thread, coalesced; use App.Post
-    public event Action? Exited;
+    public PtyExit? Exit { get; }                        // an exit code or a signal, which §12.5 tells apart
+    public event Action? Changed;                        // from a background thread, coalesced; use App.RequestRedraw
+    public event Action? Exited;                         // a handler added after the exit runs at once
+    public event Action? Bell;
+    public event Action<string>? ClipboardSet;
+    public event Action<string?, string>? Notified;
     public bool HandleKey(ConsoleKeyInfo key);
     public bool HandleMouse(MouseEvent mouse);
     public void HandlePaste(string text);
+    public void HandleFocus(bool focused);
     public void Resize(int width, int height);
+    public void Hangup();
     public void Kill();
 }
 
@@ -361,6 +374,8 @@ public sealed class TerminalViewBuilder               // MiniTui's builder conve
 
 - **Threads:** one reader thread per terminal feeds `VtScreen` under `Lock`. MiniTui's diffing and frame loop limit what reaches the real terminal, so a flood costs parsing, not drawing.
 - **Back-pressure:** the reader stops reading while a parse holds the lock, and the kernel's PTY buffer then blocks the child.
+- **Input:** a second thread per terminal writes from a queue, as a write waits while the child isn't reading. If the reader wrote replies itself, a child writing queries without reading the answers would deadlock it. Replies stop being queued past 1 MiB, so such a child can't fill memory.
+- **Exit:** `Exited` waits up to 250 ms for the last output, and no longer, as a background process left behind can hold the terminal open.
 - **Background apps** keep parsing, so they're current when switched to.
 
 ### 11.6 Acceptance for Phase 0
@@ -380,6 +395,7 @@ src/MiniTui.Vt/           the §11 library, with PublicApiAnalyzers
 src/MiniTui.Desk/         the tuidesk executable
 tests/MiniTui.Vt.Tests/
 tests/MiniTui.Desk.Tests/
+examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 ```
 - Both reference the `MiniTui` 2.1.0 NuGet package, not a source checkout.
 - The build gate is MiniTui's: `-warnaserror`, xUnit, and CI on Ubuntu. Every PR updates `CHANGELOG.md`.
@@ -467,10 +483,10 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 - [x] Generated control sequences match tmux, and `tools/vt_golden.py` regenerates every expected screen.
 
 **1c — Input and replies.** `VtInput`, `VtTerminal`, `TerminalViewBuilder`, query replies, OSC 52, and synchronized output.
-- [ ] Round-trip tests against MiniTui's decoder, for every key and modifier it can report.
-- [ ] A byte probe receives what bare tmux receives, for every key in [PRIOR-ART.md](PRIOR-ART.md).
-- [ ] Each query in §11.4 gets its reply, and a hosted app can't read the clipboard.
-- [ ] A small example embeds a shell pane in an ordinary MiniTui app.
+- [x] Round-trip tests against MiniTui's decoder, for every key and modifier it can report.
+- [x] A byte probe receives what bare tmux receives, for every key in [PRIOR-ART.md](PRIOR-ART.md).
+- [x] Each query in §11.4 gets its reply, and a hosted app can't read the clipboard.
+- [x] A small example embeds a shell pane in an ordinary MiniTui app.
 
 **1d — The shell.** §12.3 to §12.7.
 - [ ] Shell behaviour is tested with `TestBackend` and `ScriptedInputSource`.

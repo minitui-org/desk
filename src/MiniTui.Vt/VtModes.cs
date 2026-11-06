@@ -37,6 +37,7 @@ public enum VtMouseEncoding
 /// <param name="MouseEncoding">How mouse events are encoded.</param>
 /// <param name="KeyboardFlags">The kitty keyboard flags in effect.</param>
 /// <param name="SynchronizedOutput">The child is partway through a frame (mode 2026).</param>
+/// <param name="FocusReporting">The child wants to be told when it gains and loses focus (mode 1004).</param>
 public readonly record struct VtModes(
     bool AlternateScreen,
     bool ApplicationCursorKeys,
@@ -45,4 +46,5 @@ public readonly record struct VtModes(
     VtMouseMode Mouse,
     VtMouseEncoding MouseEncoding,
     int KeyboardFlags,
-    bool SynchronizedOutput);
+    bool SynchronizedOutput,
+    bool FocusReporting);
