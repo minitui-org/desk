@@ -418,8 +418,8 @@ Alt+Tab isn't used: Windows and most Linux desktops take it before the terminal 
 ### 12.5 App lifecycle
 - **Start:** with no config, Desk opens `$SHELL`, falling back to `/bin/sh`.
 - **Environment:** the shell's, with `TERM=xterm-256color`, `COLORTERM=truecolor`, and `TERM_PROGRAM=tuidesk`.
-- **Exit 0:** the app closes and the previous one comes to the front.
-- **Non-zero exit, or killed by a signal:** the last screen stays, frozen, and the status line says how it ended (`exited 1`, `killed by SIGKILL`) with `r` to restart and `c` to close. In the background, it also adds a notification.
+- **Exit 0, or Ctrl+C (exit 130, or killed by SIGINT):** the app closes and the previous one comes to the front.
+- **Any other non-zero exit, or killed by another signal:** the last screen stays, frozen, and the status line says how it ended (`exited 1`, `killed by SIGKILL`) with `r` to restart and `c` to close. In the background, it also adds a notification.
 - **Decision: the last app closing** opens the launcher rather than quitting, so typing `exit` once doesn't end the session.
 - **Close (`x`):** SIGHUP, then SIGKILL after 3 seconds. No protocol is involved until Phase 2.
 - **Quit:** closes every app the same way, then restores the terminal.
