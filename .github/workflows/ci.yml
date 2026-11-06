@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore src/MiniTui.Desk.sln
+
+      - name: Build
+        run: dotnet build src/MiniTui.Desk.sln --configuration Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test src/MiniTui.Desk.sln --configuration Release --no-build
+
+      - name: Native AOT
+        run: |
+          dotnet publish tests/MiniTui.Vt.AotHost/MiniTui.Vt.AotHost.csproj --configuration Release --output aot
+          ./aot/MiniTui.Vt.AotHost
