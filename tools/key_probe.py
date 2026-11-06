@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Compare the bytes a program receives for each key, directly in tmux and hosted in MiniTui.Vt.
+"""Compare the bytes a program receives for each key, directly in tmux and hosted.
 
-    dotnet build examples/MiniTui.Vt.Example -c Release
-    tools/key_probe.py
+    dotnet build src/MiniTui.Desk.sln -c Release
+    tools/key_probe.py          # hosted in the MiniTui.Vt example
+    tools/key_probe.py --desk   # hosted in tuidesk, where Ctrl+Space is pressed twice
 
 The acceptance check for spec 12.9: the keys in docs/PRIOR-ART.md arrive unchanged. Uses a private tmux server, and
 exits non-zero if any key differs in a way that isn't listed in EXPECTED_DIFFERENCES.
@@ -16,6 +17,8 @@ import time
 
 SOCKET = "minitui-vt-probe"
 EXAMPLE = os.path.join(os.path.dirname(__file__), "..", "examples", "MiniTui.Vt.Example", "bin", "Release", "net10.0", "MiniTui.Vt.Example")
+TUIDESK = os.path.join(os.path.dirname(__file__), "..", "src", "MiniTui.Desk", "bin", "Release", "net10.0", "tuidesk")
+DESK = "--desk" in sys.argv
 
 PROBE = r"""
 import os, sys, tty
@@ -80,7 +83,6 @@ KITTY = [
 EXPECTED_DIFFERENCES = {
     "Home": "tmux's form is CSI 1~; xterm-256color's is CSI H",
     "End": "tmux's form is CSI 4~; xterm-256color's is CSI F",
-    "Ctrl+J": "a gap in MiniTui, which decodes 0x0A as Enter, so the shell can't tell them apart (spec 11.3)",
 }
 
 
@@ -100,7 +102,16 @@ def run(command, mode, directory, name):
     with open(script, "w") as f:
         f.write(PROBE)
     probe = f"{sys.executable} -I {script} {log} {mode}"
-    tmux("new-session", "-d", "-s", name, "-x", "120", "-y", "35", (command + " " + probe).strip())
+    hosted = command != ""
+    if hosted and DESK:
+        wrapper = os.path.join(directory, name + ".sh")
+        with open(wrapper, "w") as f:
+            f.write(f"#!/bin/sh\nexec {probe}\n")
+        os.chmod(wrapper, 0o755)
+        line = f"env SHELL={wrapper} {command}"
+    else:
+        line = (command + " " + probe).strip()
+    tmux("new-session", "-d", "-s", name, "-x", "120", "-y", "35", line)
 
     deadline = time.time() + 15
     while not (os.path.exists(log) and read_lines(log)):
@@ -112,9 +123,13 @@ def run(command, mode, directory, name):
     def send(args, raw=None):
         before = len(read_lines(log))
         if raw is not None:
-            tmux("send-keys", "-t", name, "-H", *[f"{b:02x}" for b in raw.encode()])
+            for _ in range(2 if hosted and DESK and raw == "\x1b[32;5u" else 1):
+                tmux("send-keys", "-t", name, "-H", *[f"{b:02x}" for b in raw.encode()])
         else:
             tmux("send-keys", "-t", name, *args)
+            # In tuidesk it's the prefix, and pressing it twice sends it on.
+            if hosted and DESK and args == ["C-Space"]:
+                tmux("send-keys", "-t", name, *args)
         # Long enough for the host's Esc timeout, and for a slow machine.
         time.sleep(0.15)
         lines = read_lines(log)[before:]
@@ -126,9 +141,9 @@ def run(command, mode, directory, name):
 def main():
     if not shutil.which("tmux"):
         raise SystemExit("tmux isn't installed")
-    example = os.path.abspath(EXAMPLE)
+    example = os.path.abspath(TUIDESK if DESK else EXAMPLE)
     if not os.path.exists(example):
-        raise SystemExit("Build the example first: dotnet build examples/MiniTui.Vt.Example -c Release")
+        raise SystemExit("Build first: dotnet build src/MiniTui.Desk.sln -c Release")
 
     tmux("kill-server", check=False)
     failures = 0
@@ -167,12 +182,15 @@ def main():
         print("\n## Mouse and paste\n")
         print("| What | Sent | Received | Expected | |")
         print("|---|---|---|---|---|")
+        # The example draws a border, so its pane starts at column 2, row 2. In tuidesk, the app starts at the corner,
+        # and outside it is the status line.
+        at = (lambda sequence: sequence) if DESK else (lambda sequence: sequence.replace(";5;5", ";4;4"))
+        outside = "\x1b[<0;5;35M" if DESK else "\x1b[<0;115;5M"
         for name, send, sequence, expected in [
-            # The example draws a border, so the pane starts at column 2, row 2.
-            ("Click, moved into the pane", hosted_mouse, "\x1b[<0;5;5M", b"\x1b[<0;4;4M"),
-            ("Release", hosted_mouse, "\x1b[<0;5;5m", b"\x1b[<0;4;4m"),
-            ("Wheel", hosted_mouse, "\x1b[<64;5;5M", b"\x1b[<64;4;4M"),
-            ("Click outside the pane", hosted_mouse, "\x1b[<0;115;5M", b""),
+            ("Click, moved into the pane", hosted_mouse, "\x1b[<0;5;5M", at("\x1b[<0;5;5M").encode()),
+            ("Release", hosted_mouse, "\x1b[<0;5;5m", at("\x1b[<0;5;5m").encode()),
+            ("Wheel", hosted_mouse, "\x1b[<64;5;5M", at("\x1b[<64;5;5M").encode()),
+            ("Click outside the pane", hosted_mouse, outside, b""),
             ("Click, program didn't ask", hosted, "\x1b[<0;5;5M", b""),
             ("Paste, line breaks become CR", hosted, "\x1b[200~a\nb\x1b[201~", b"a\rb"),
         ]:

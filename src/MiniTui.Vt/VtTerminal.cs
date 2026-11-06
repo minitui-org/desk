@@ -51,6 +51,10 @@ public sealed class VtTerminal : IDisposable
         _changedTimer = new Timer(_ => ChangedTimerFired());
         _holdTimer = new Timer(_ => Changed?.Invoke());
 
+    }
+
+    private void Begin()
+    {
         new Thread(ReadOutput) { IsBackground = true, Name = "VtTerminal read" }.Start();
         new Thread(WriteInput) { IsBackground = true, Name = "VtTerminal write" }.Start();
         _ = WatchExit();
@@ -105,10 +109,31 @@ public sealed class VtTerminal : IDisposable
     /// <summary>Start a program in a new terminal.</summary>
     /// <exception cref="Win32Exception">The terminal couldn't be created, or the program couldn't be started.</exception>
     /// <exception cref="PlatformNotSupportedException">Not running on Linux.</exception>
-    public static VtTerminal Start(VtStartInfo info)
+    public static VtTerminal Start(VtStartInfo info) => Start(info, null);
+
+    /// <summary>
+    /// Start a program in a new terminal, running <paramref name="setup"/> before any of its output is read. Add
+    /// handlers there, and set the default colors: a program can ring the bell or ask about its colors as soon as
+    /// it starts, and <see cref="Start(VtStartInfo)"/> only returns after that may have happened.
+    /// </summary>
+    /// <exception cref="Win32Exception">The terminal couldn't be created, or the program couldn't be started.</exception>
+    /// <exception cref="PlatformNotSupportedException">Not running on Linux.</exception>
+    public static VtTerminal Start(VtStartInfo info, Action<VtTerminal>? setup)
     {
         var process = PtyProcess.Start(info);
-        return new VtTerminal(process, info.Width, info.Height);
+        var terminal = new VtTerminal(process, info.Width, info.Height);
+        try
+        {
+            setup?.Invoke(terminal);
+        }
+        catch
+        {
+            process.Kill();
+            process.Dispose();
+            throw;
+        }
+        terminal.Begin();
+        return terminal;
     }
 
     /// <summary>Send a key to the program, encoded for the modes it has set.</summary>

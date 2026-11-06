@@ -65,13 +65,13 @@ Checked on 2026-11-06, with the same vttest and tmux. `tools/key_probe.py` runs 
 
 **Keys in [PRIOR-ART.md](PRIOR-ART.md):** all 10 arrive identical to bare tmux: a, Esc, Ctrl+B, Up, Ctrl+Space, Alt+Left, Ctrl+PageUp, Ctrl+Shift+Up, Alt+Enter and F10. Shift+Enter is `CSI 13;2u` for a program that pushed kitty flags, also identical, and `\r` for one that didn't, as from xterm.
 
-**Other keys:** 52 more were sent, and 49 are identical. The three that differ:
+**Other keys:** 52 more were sent, and 49 were identical at the time. The three that differed:
 
 | Key | Bare tmux | Hosted | Why |
 |---|---|---|---|
 | Home | `CSI 1 ~` | `CSI H` | tmux's own form. A hosted program was told `TERM=xterm-256color`, whose form is `CSI H` |
 | End | `CSI 4 ~` | `CSI F` | The same |
-| Ctrl+J | `\n` | `\r` | **A real gap.** MiniTui decodes `0x0A` as Enter, so the shell can't tell them apart (§11.3). Only on an outer terminal with no keyboard protocol |
+| Ctrl+J | `\n` | `\r` | A gap in MiniTui, which decoded `0x0A` as Enter. Fixed in MiniTui 2.1.1, and now identical |
 
 **Mouse and paste:** a click, release and wheel arrive with positions relative to the pane. A click outside it, or in a program that didn't ask, sends nothing. Pasted line breaks arrive as `\r`.
 
@@ -87,3 +87,26 @@ Checked on 2026-11-06, with the same vttest and tmux. `tools/key_probe.py` runs 
 Menu 6's other tests weren't run. Menu 5 (keyboard) wasn't either, as it asks a person to press keys, and the probe above covers the same ground.
 
 **Real programs in the example:** nvim started with no terminal-response warning and pushed kitty flags, and followed a resize; htop drew correctly; Ctrl+C stopped `yes`. Each was read from captured text. k9s and Claude Code are on the 1d list.
+
+## The shell (Phase 1d)
+
+Checked on 2026-11-06, with `tuidesk` in tmux 3.4 under a private server, reading captured text.
+
+**Limits:** as in Phase 1c, tmux is the outer terminal and keys are scripted, so colors and the feel of it on a real GUI terminal are unchecked. Kitty's forms, including Shift+Enter, were sent as raw bytes. Text reaching a real system clipboard is unchecked; the end-to-end test sees the OSC 52 that `tuidesk` sends.
+
+**`tools/key_probe.py --desk`:** 0 unexpected differences. Every key in [PRIOR-ART.md](PRIOR-ART.md) arrives identical to bare tmux (Ctrl+Space by pressing it twice, as it's the prefix), and so does Ctrl+J, with MiniTui 2.1.1. Of the other keys, only Home and End differ, for the reason above.
+
+**Real programs:**
+
+| Program | Result |
+|---|---|
+| nvim, with `-u NONE` | Draws correctly, `:messages` is empty, so no terminal-response warning |
+| htop | Draws correctly, and follows a resize |
+| k9s | Draws correctly against a real cluster, and is the right size after a resize while in the background |
+| Claude Code | Draws correctly, and Shift+Enter in the input adds a line rather than sending. No prompt was sent |
+
+Closing the tmux session ended `tuidesk` and everything it hosted.
+
+**Native AOT:** `tuidesk` publishes with no warnings. The binary started a shell, and showed help and a broken `config.json`'s notification.
+
+**Not done:** the working session in §12.9, which needs a person.

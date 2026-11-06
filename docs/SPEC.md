@@ -320,7 +320,7 @@ public static class VtInput
 - A paste is wrapped when the child enabled `BracketedPaste`, and any `ESC` in it is removed so that pasted text can't end the paste early. Line breaks become carriage returns, as from a keyboard.
 - **Tests:** round trips against MiniTui's own decoder: encode, decode, compare, for every key and modifier it can report. `tools/key_probe.py` compares the bytes a real program receives with bare tmux. Results are in [VTTEST.md](VTTEST.md).
 - **Known limit:** a child can only receive what the outer terminal reports and MiniTui decodes. Key-release events aren't available.
-- **Gap found in MiniTui (§7):** on an outer terminal without a keyboard protocol, MiniTui decodes byte `0x0A` as Enter, so Ctrl+J reaches the child as `\r` rather than `\n`. With kitty or win32-input-mode, Ctrl+J is reported as itself and arrives correctly.
+- **Fixed in MiniTui 2.1.1 (§7):** on an outer terminal without a keyboard protocol, MiniTui decoded byte `0x0A` as Enter, so Ctrl+J reached the child as `\r` rather than `\n`.
 
 ### 11.4 Queries and clipboard
 Apps ask the terminal questions, and the emulator has to answer or they wait for a timeout.
@@ -344,6 +344,7 @@ Apps ask the terminal questions, and the emulator has to answer or they wait for
 public sealed class VtTerminal : IDisposable
 {
     public static VtTerminal Start(VtStartInfo info);    // file, args, environment, working directory, size
+    public static VtTerminal Start(VtStartInfo info, Action<VtTerminal>? setup);  // setup runs before any output is read
     public VtScreen Screen { get; }                      // read under Lock
     public Lock Lock { get; }
     public int Pid { get; }
@@ -397,7 +398,7 @@ tests/MiniTui.Vt.Tests/
 tests/MiniTui.Desk.Tests/
 examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 ```
-- Both reference the `MiniTui` 2.1.0 NuGet package, not a source checkout.
+- Both reference the `MiniTui` 2.1.1 NuGet package, not a source checkout.
 - The build gate is MiniTui's: `-warnaserror`, xUnit, and CI on Ubuntu. Every PR updates `CHANGELOG.md`.
 - Nothing is published in Phase 1.
 
@@ -422,6 +423,8 @@ Every key goes to the foreground app except the prefix, `Ctrl+Space` by default.
 While waiting for that key, the status line shows the choices, and there's no timeout. Pastes go to the app, wrapped by §11.3.
 
 The mouse goes to the app when it asked for mouse events, with no shell interpretation. Clicks on the status line open the switcher. The shell uses `WithMouse` and `WithHover`, since a hosted app may ask for any-motion events. Focus reporting (mode 1004) is sent to apps that enabled it when they're switched to and from.
+
+Only the foreground app's clipboard writes (§11.4) are forwarded, so a program out of sight can't replace what the user copied.
 
 ### 12.4 Switcher and launcher
 **Decision:** two lists, each with one job, both behind the prefix so that `Ctrl+Space` stays the only key taken from hosted apps.
@@ -452,7 +455,7 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 **Do Not Disturb is on by default:** notifications only increase the count, and `prefix n` lists them. With it off, they also appear as a toast. The queue is capped at 100, dropping the oldest, and doesn't survive a restart.
 
 ### 12.7 Config
-`~/.config/tuidesk/config.json` and `apps.json`. Both are optional, read at startup, and parsed with System.Text.Json source generation. A broken file doesn't stop Desk: it's ignored, with a notification saying why.
+`~/.config/tuidesk/config.json` and `apps.json` (`$XDG_CONFIG_HOME/tuidesk` when that's set). Both are optional, read at startup, and parsed with System.Text.Json source generation. A broken file doesn't stop Desk: it's ignored, with a notification saying why.
 
 ```json
 { "prefix": "ctrl+space", "doNotDisturb": true }
@@ -489,15 +492,15 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 - [x] A small example embeds a shell pane in an ordinary MiniTui app.
 
 **1d — The shell.** §12.3 to §12.7.
-- [ ] Shell behaviour is tested with `TestBackend` and `ScriptedInputSource`.
-- [ ] End-to-end tests run `tuidesk` itself inside a `VtTerminal`, hosting real children, covering the rest of this list.
-- [ ] Every key but the prefix reaches the app, unchanged.
-- [ ] A hosted app gets the full terminal minus one row, and follows a resize with nothing off-screen.
-- [ ] Everything works without a mouse, and with no config.
-- [ ] A crashed app keeps its screen and says how it ended.
-- [ ] Ctrl+C during `yes` gets back to a prompt in under 500 ms.
-- [ ] nvim starts with no terminal-response warning, and htop and k9s draw correctly.
-- [ ] Claude Code runs correctly, including Shift+Enter when the outer terminal reports it.
+- [x] Shell behaviour is tested with `TestBackend` and `ScriptedInputSource`.
+- [x] End-to-end tests run `tuidesk` itself inside a `VtTerminal`, hosting real children, covering the rest of this list.
+- [x] Every key but the prefix reaches the app, unchanged.
+- [x] A hosted app gets the full terminal minus one row, and follows a resize with nothing off-screen.
+- [x] Everything works without a mouse, and with no config.
+- [x] A crashed app keeps its screen and says how it ended.
+- [x] Ctrl+C during `yes` gets back to a prompt in under 500 ms.
+- [x] nvim starts with no terminal-response warning, and htop and k9s draw correctly (by hand, [VTTEST.md](VTTEST.md)).
+- [x] Claude Code runs correctly, including Shift+Enter when the outer terminal reports it (by hand, sent as raw bytes, [VTTEST.md](VTTEST.md)).
 - [ ] Ben uses it for a working session.
 
 ### 12.10 Out of scope
