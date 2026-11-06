@@ -1,0 +1,48 @@
+#nullable enable
+MiniTui.Vt.PtyExit
+MiniTui.Vt.PtyExit.Code.get -> int?
+MiniTui.Vt.PtyExit.Code.init -> void
+MiniTui.Vt.PtyExit.Deconstruct(out int? Code, out int? Signal) -> void
+MiniTui.Vt.PtyExit.Equals(MiniTui.Vt.PtyExit other) -> bool
+MiniTui.Vt.PtyExit.PtyExit() -> void
+MiniTui.Vt.PtyExit.PtyExit(int? Code, int? Signal) -> void
+MiniTui.Vt.PtyExit.Signal.get -> int?
+MiniTui.Vt.PtyExit.Signal.init -> void
+MiniTui.Vt.PtyProcess
+MiniTui.Vt.PtyProcess.Dispose() -> void
+MiniTui.Vt.PtyProcess.Exit.get -> System.Threading.Tasks.Task<MiniTui.Vt.PtyExit>!
+MiniTui.Vt.PtyProcess.Hangup() -> void
+MiniTui.Vt.PtyProcess.HasExited.get -> bool
+MiniTui.Vt.PtyProcess.Kill() -> void
+MiniTui.Vt.PtyProcess.Pid.get -> int
+MiniTui.Vt.PtyProcess.Read(System.Span<byte> buffer) -> int
+MiniTui.Vt.PtyProcess.Resize(int width, int height) -> void
+MiniTui.Vt.PtyProcess.Write(System.ReadOnlySpan<byte> bytes) -> void
+MiniTui.Vt.VtStartInfo
+MiniTui.Vt.VtStartInfo.<Clone>$() -> MiniTui.Vt.VtStartInfo!
+MiniTui.Vt.VtStartInfo.Args.get -> System.Collections.Generic.IReadOnlyList<string!>!
+MiniTui.Vt.VtStartInfo.Args.init -> void
+MiniTui.Vt.VtStartInfo.Deconstruct(out string! FileName) -> void
+MiniTui.Vt.VtStartInfo.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string?>!
+MiniTui.Vt.VtStartInfo.Environment.init -> void
+MiniTui.Vt.VtStartInfo.Equals(MiniTui.Vt.VtStartInfo? other) -> bool
+MiniTui.Vt.VtStartInfo.FileName.get -> string!
+MiniTui.Vt.VtStartInfo.FileName.init -> void
+MiniTui.Vt.VtStartInfo.Height.get -> int
+MiniTui.Vt.VtStartInfo.Height.init -> void
+MiniTui.Vt.VtStartInfo.VtStartInfo(string! FileName) -> void
+MiniTui.Vt.VtStartInfo.Width.get -> int
+MiniTui.Vt.VtStartInfo.Width.init -> void
+MiniTui.Vt.VtStartInfo.WorkingDirectory.get -> string?
+MiniTui.Vt.VtStartInfo.WorkingDirectory.init -> void
+override MiniTui.Vt.PtyExit.GetHashCode() -> int
+override MiniTui.Vt.PtyExit.ToString() -> string!
+override MiniTui.Vt.VtStartInfo.Equals(object? obj) -> bool
+override MiniTui.Vt.VtStartInfo.GetHashCode() -> int
+override MiniTui.Vt.VtStartInfo.ToString() -> string!
+static MiniTui.Vt.PtyExit.operator !=(MiniTui.Vt.PtyExit left, MiniTui.Vt.PtyExit right) -> bool
+static MiniTui.Vt.PtyExit.operator ==(MiniTui.Vt.PtyExit left, MiniTui.Vt.PtyExit right) -> bool
+static MiniTui.Vt.PtyProcess.Start(MiniTui.Vt.VtStartInfo! info) -> MiniTui.Vt.PtyProcess!
+static MiniTui.Vt.VtStartInfo.operator !=(MiniTui.Vt.VtStartInfo? left, MiniTui.Vt.VtStartInfo? right) -> bool
+static MiniTui.Vt.VtStartInfo.operator ==(MiniTui.Vt.VtStartInfo? left, MiniTui.Vt.VtStartInfo? right) -> bool
+~override MiniTui.Vt.PtyExit.Equals(object obj) -> bool

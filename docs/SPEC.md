@@ -97,7 +97,7 @@ Each phase gets its own spec section before implementation begins, with acceptan
 
 **Phase 1 — Shell inside a terminal emulator** (full spec: §12)
 - `MiniTui.Vt`:
-  - PTY spawn via `openpty` and `posix_spawn` P/Invoke (§11.1), never `forkpty`, with resize by `TIOCSWINSZ`
+  - PTY spawn via `posix_openpt` and `posix_spawn` P/Invoke (§11.1), never `forkpty`, with resize by `TIOCSWINSZ`
   - VT parser (DEC/ANSI state machine) and screen model: SGR (16, 256 and truecolor), cursor movement, scroll regions, alternate screen, wide characters, synchronized output
   - Replies to terminal queries, and OSC 52 forwarding (§11.4)
   - Input encoding: keys, mouse and pastes back to bytes, following each child's modes (§11.3)
@@ -252,13 +252,13 @@ Accepted by Ben on 2026-11-05, as recommended.
 ### 11.1 Spawning (proven)
 `forkpty` is out: the child would run managed code after `fork`, in a copy of the runtime with its other threads gone. Instead:
 
-1. `openpty`, then `ptsname`, then close the slave and set `FD_CLOEXEC` on the master.
+1. `posix_openpt`, `grantpt`, `unlockpt` and `ptsname_r`, with the master `O_CLOEXEC`. (The spike used `openpty`, which needs libutil on older glibc.) The parent keeps the slave open across the spawn, so the terminal always has one.
 2. `posix_spawn` with `POSIX_SPAWN_SETSID`, `SETSIGDEF` for every signal and `SETSIGMASK` with an empty mask. .NET's ignored signals would otherwise reach the child.
 3. File actions: open the slave by path as fd 0, then `dup2` it to 1 and 2. Opening it after `setsid` is what makes it the controlling terminal.
 
 A spike on Ubuntu 24.04 (glibc, .NET 10, run with the normal runtime) confirmed: the child is a session leader with the PTY as its controlling terminal and the right size; no signals are ignored or blocked; `TIOCSWINSZ` alone delivers `SIGWINCH`, so the shell doesn't send it; Ctrl+C reaches the foreground job; Ctrl+Z and `jobs` work in an interactive bash.
 
-Still to prove in 1a: Native AOT (use `LibraryImport`; the spike's `DllImport` string arrays aren't AOT-safe), working directory (`posix_spawn_file_actions_addchdir_np`), and reaping with `waitpid` alongside .NET's own `SIGCHLD` handling, including when the app also uses `System.Diagnostics.Process`.
+1a added Native AOT (with `LibraryImport`), working directory (`posix_spawn_file_actions_addchdir_np`), and reaping alongside `System.Diagnostics.Process`: each child has its own waiting thread, which calls `waitid` and `waitpid` for that pid only.
 
 ### 11.2 Screen model
 
@@ -452,9 +452,9 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 ### 12.9 Sub-phases and acceptance
 
 **1a — Repo and PTY.** `PtyProcess`: the §11.1 spawn, with working directory, environment, resize, kill, and exit status.
-- [ ] CI builds and tests on Ubuntu.
-- [ ] Tests start real children and check the controlling terminal, size, `SIGWINCH`, Ctrl+C, signal mask and exit status.
-- [ ] The test suite passes under a Native AOT build of a small host, and alongside `System.Diagnostics.Process`.
+- [x] CI builds and tests on Ubuntu.
+- [x] Tests start real children and check the controlling terminal, size, `SIGWINCH`, Ctrl+C, signal mask and exit status.
+- [x] The test suite passes under a Native AOT build of a small host, and alongside `System.Diagnostics.Process`.
 
 **1b — Parser and screen.** `VtScreen`, with golden-screen tests.
 - [ ] SGR, cursor movement, scroll regions, insert and delete, alternate screen, wide characters and combining marks, line wrap, and resize.
