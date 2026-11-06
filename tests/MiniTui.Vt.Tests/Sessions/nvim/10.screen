@@ -1,0 +1,25 @@
+39 0 1
+[38;2;224;226;234m[48;2;20;22;27m                    operator is pending.[39m                                        
+[38;2;224;226;234m                  - Ex commands can be used to move the cursor.  This can be[39m    
+[38;2;224;226;234m                    used to call a function that does some complicated motion.[39m  
+[38;2;224;226;234m                    The motion is always charwise exclusive, no matter what[39m     
+[38;2;224;226;234m                    ":" command is used.  This means it's impossible to[39m         
+[38;2;224;226;234m                    include the last character of a line without the line[39m       
+[38;2;224;226;234m                    break (unless ]8;id=3790209028;https://neovim.io/doc/user/helptag/?tag='virtualedit'\'[4mvirtualedit[0m[38;2;224;226;234m[48;2;20;22;27m]8;;\' is set). If the Ex command[39m      
+[38;2;224;226;234m                    changes the text before where the operator starts or jumps[39m  
+[38;2;224;226;234m                    to another buffer the result is unpredictable.  It is[39m       
+[38;2;224;226;234m                    possible to change the text further down.  Jumping to[39m       
+[38;2;224;226;234m                    another buffer is possible if the current buffer is not[39m     
+[38;2;224;226;234m                    unloaded.[39m                                                   
+                                                                                
+[38;2;224;226;234m                                                        [1m]8;id=3790209029;https://neovim.io/doc/user/helptag/?tag=%7bVisual%7d\{Visual}[0m[48;2;20;22;27m]8;;\                
+[38;2;224;226;234m- {Visual}      A selected text area.  It is started with the "v", "V", or[39m      
+[38;2;224;226;234m                [38;2;140;248;247mCTRL-V[38;2;224;226;234m command, then any cursor movement command can be used[39m    
+[38;2;224;226;234m                to change the end of the selected text.[39m                         
+[38;2;224;226;234m                This is used before an [4m]8;id=3790209027;https://neovim.io/doc/user/helptag/?tag=operator\operator[0m[38;2;224;226;234m[48;2;20;22;27m]8;;\ command to highlight the[39m        
+[38;2;224;226;234m                text that is to be operated upon.[39m                               
+[38;2;224;226;234m                See [4m]8;id=3790209030;https://neovim.io/doc/user/helptag/?tag=Visual-mode\Visual-mode[0m[38;2;224;226;234m[48;2;20;22;27m]8;;\.[39m                                                
+[38;2;224;226;234m[48;2;79;82;88mhelphelp.txt [Help][-][RO]                                    100,40         18%
+[38;2;79;82;88m[48;2;20;22;27m  9 [1m[38;2;224;226;234mend[0m[48;2;20;22;27m                                                                         
+[38;2;196;198;205m[48;2;44;46;51mfixture.lua [+]                                               9,3            Bot
+[38;2;224;226;234m[48;2;20;22;27m:help[39m [38;2;224;226;234mmotion[39m                                                         [38;2;224;226;234m   [39m        
