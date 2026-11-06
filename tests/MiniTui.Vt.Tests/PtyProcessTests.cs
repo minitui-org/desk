@@ -144,7 +144,7 @@ public class PtyProcessTests
         static int Open() => Directory.GetFiles("/proc/self/fd").Length;
         var before = Open();
         for (var i = 0; i < 200; i++)
-            Assert.Throws<Win32Exception>(() => PtyProcess.Start(new VtStartInfo("no-such-program-here")));
+            Assert.Throws<Win32Exception>(() => PtyProcess.Start(new VtStartInfo("/no/such/program")));
         Assert.True(Open() - before < 100, $"{before} descriptors before, {Open()} after");
     }
 
