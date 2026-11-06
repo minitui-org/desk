@@ -9,7 +9,7 @@ internal interface IVtParserHandler
     void Execute(byte control);
     void EscDispatch(byte intermediate, byte final);
     void CsiDispatch(VtParams parameters, byte marker, byte intermediate, byte final);
-    void OscDispatch(ReadOnlySpan<byte> data);
+    void OscDispatch(ReadOnlySpan<byte> data, bool bel);
 }
 
 /// <summary>The parameters of a control sequence. Reused between sequences.</summary>
@@ -272,11 +272,11 @@ internal sealed class VtParser(IVtParserHandler handler)
         {
             case Bel:
                 _state = State.Ground;
-                DispatchOsc();
+                DispatchOsc(bel: true);
                 break;
             case Esc:
                 // ESC \ ends it, and any other ESC sequence also ends it and then runs.
-                DispatchOsc();
+                DispatchOsc(bel: false);
                 Control(b);
                 break;
             case Can or Sub:
@@ -291,9 +291,9 @@ internal sealed class VtParser(IVtParserHandler handler)
         }
     }
 
-    private void DispatchOsc()
+    private void DispatchOsc(bool bel)
     {
-        if (!_oscOverflow) handler.OscDispatch(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_osc));
+        if (!_oscOverflow) handler.OscDispatch(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_osc), bel);
     }
 
     private void StringIgnore(byte b)

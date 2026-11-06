@@ -92,7 +92,8 @@ public sealed partial class VtScreen : IVtParserHandler
         _mouseMode,
         _mouseEncoding,
         KeyboardStack.Count > 0 ? KeyboardStack[^1] : 0,
-        _synchronizedOutput);
+        _synchronizedOutput,
+        _focusReporting);
 
     /// <summary>Process output from the program. A sequence or character can be split across calls.</summary>
     public void Feed(ReadOnlySpan<byte> bytes) => _parser.Feed(bytes);
@@ -109,6 +110,8 @@ public sealed partial class VtScreen : IVtParserHandler
         ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
         if (width == Width && height == Height) return;
 
+        // A held frame is the wrong shape now, and the program is about to redraw anyway.
+        _holding = false;
         var mainIsActive = _grid == _main;
         var removed = _grid.Resize(width, height, _y);
         var other = mainIsActive ? _alternate : _main;

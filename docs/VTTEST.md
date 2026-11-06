@@ -56,3 +56,34 @@ Reading the differences found two real `VtScreen` issues: the attributes left be
 | Entering the alternate screen with a background set | Default background | Current background | No |
 | Wide character whose second half is overwritten, in column 0 | Keeps it | Blanks it | Yes |
 | Line drawing for letters outside its usual set | Letter | The VT100 symbol | Yes |
+
+## Input and replies (Phase 1c)
+
+Checked on 2026-11-06, with the same vttest and tmux. `tools/key_probe.py` runs a program that prints the raw bytes it receives, directly in tmux and hosted in the example, and sends both the same keys.
+
+**Limits:** tmux is the outer terminal throughout, driven by scripted keys, so no real keyboard or GUI terminal was involved. Kitty's forms were sent as raw bytes, not by a terminal that speaks the protocol.
+
+**Keys in [PRIOR-ART.md](PRIOR-ART.md):** all 10 arrive identical to bare tmux: a, Esc, Ctrl+B, Up, Ctrl+Space, Alt+Left, Ctrl+PageUp, Ctrl+Shift+Up, Alt+Enter and F10. Shift+Enter is `CSI 13;2u` for a program that pushed kitty flags, also identical, and `\r` for one that didn't, as from xterm.
+
+**Other keys:** 52 more were sent, and 49 are identical. The three that differ:
+
+| Key | Bare tmux | Hosted | Why |
+|---|---|---|---|
+| Home | `CSI 1 ~` | `CSI H` | tmux's own form. A hosted program was told `TERM=xterm-256color`, whose form is `CSI H` |
+| End | `CSI 4 ~` | `CSI F` | The same |
+| Ctrl+J | `\n` | `\r` | **A real gap.** MiniTui decodes `0x0A` as Enter, so the shell can't tell them apart (§11.3). Only on an outer terminal with no keyboard protocol |
+
+**Mouse and paste:** a click, release and wheel arrive with positions relative to the pane. A click outside it, or in a program that didn't ask, sends nothing. Pasted line breaks arrive as `\r`.
+
+**vttest menu 6 (reports):**
+
+| Test | Result |
+|---|---|
+| Device status 5 and 6 | Pass: "TERMINAL OK", and the cursor position marked OK |
+| Primary attributes | `CSI ? 62 ; 22 c`: VT200 family, color |
+| Secondary attributes | `CSI > 1 ; 10 ; 0 c`: VT220, firmware 1.0 |
+| Answerback | Empty, which is allowed: no message is set |
+
+Menu 6's other tests weren't run. Menu 5 (keyboard) wasn't either, as it asks a person to press keys, and the probe above covers the same ground.
+
+**Real programs in the example:** nvim started with no terminal-response warning and pushed kitty flags, and followed a resize; htop drew correctly; Ctrl+C stopped `yes`. Each was read from captured text. k9s and Claude Code are on the 1d list.

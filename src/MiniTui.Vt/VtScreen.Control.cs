@@ -28,6 +28,7 @@ public sealed partial class VtScreen
     private bool _applicationKeypad;
     private bool _bracketedPaste;
     private bool _synchronizedOutput;
+    private bool _focusReporting;
     private VtMouseMode _mouseMode;
     private VtMouseEncoding _mouseEncoding;
     private Charset _g0;
@@ -49,6 +50,9 @@ public sealed partial class VtScreen
     {
         switch (control)
         {
+            case 0x07:
+                Host?.Bell();
+                break;
             case 0x08:
                 _pendingWrap = false;
                 if (_x > 0) _x--;
@@ -115,6 +119,10 @@ public sealed partial class VtScreen
             case ('>', '\0', 'u'): PushKeyboardFlags(p.Get(0)); break;
             case ('<', '\0', 'u'): PopKeyboardFlags(p.Count1(0)); break;
             case ('=', '\0', 'u'): SetKeyboardFlags(p.Get(0), p.Get(1, 1)); break;
+            case ('?', '\0', 'u'): ReportKeyboardFlags(); break;
+            case ('>', '\0', 'c'): SecondaryDeviceAttributes(p.Get(0)); break;
+            case ('\0', '$', 'p'): ReportMode(p.Get(0)); break;
+            case ('?', '$', 'p'): ReportPrivateMode(p.Get(0)); break;
         }
     }
 
@@ -158,28 +166,35 @@ public sealed partial class VtScreen
                 break;
             case 'Z': TabBackward(p.Count1(0)); break;
             case 'b': Repeat(p.Count1(0)); break;
+            case 'c': DeviceAttributes(p.Get(0)); break;
             case 'd': MoveTo(_x, p.Count1(0) - 1); break;
             case 'g': ClearTabStops(p.Get(0)); break;
             case 'h': SetModes(p, true); break;
             case 'l': SetModes(p, false); break;
             case 'm': SelectGraphicRendition(p); break;
+            case 'n': DeviceStatus(p.Get(0)); break;
             case 'r': SetScrollRegion(p.Count1(0) - 1, (p.Get(1) == 0 ? Height : p.Get(1)) - 1); break;
             case 's': SaveCursor(); break;
             case 'u': RestoreCursor(); break;
         }
     }
 
-    void IVtParserHandler.OscDispatch(ReadOnlySpan<byte> data)
+    void IVtParserHandler.OscDispatch(ReadOnlySpan<byte> data, bool bel)
     {
         var separator = data.IndexOf((byte)';');
         if (separator < 0) return;
         var command = data[..separator];
+        var body = data[(separator + 1)..];
         if (command.SequenceEqual("0"u8) || command.SequenceEqual("2"u8))
         {
-            var title = Encoding.UTF8.GetString(data[(separator + 1)..]);
-            title = string.Concat(title.Where(c => !char.IsControl(c)));
+            var title = Clean(body);
             Title = title.Length == 0 ? null : title;
         }
+        else if (command.SequenceEqual("9"u8)) NotifyFromOsc9(body);
+        else if (command.SequenceEqual("10"u8)) ColorQuery(10, body, bel);
+        else if (command.SequenceEqual("11"u8)) ColorQuery(11, body, bel);
+        else if (command.SequenceEqual("52"u8)) ClipboardRequest(body, bel);
+        else if (command.SequenceEqual("777"u8)) NotifyFromOsc777(body);
     }
 
     private void MoveUp(int count)
@@ -390,6 +405,7 @@ public sealed partial class VtScreen
                 case 1000: SetMouse(VtMouseMode.Normal, on); break;
                 case 1002: SetMouse(VtMouseMode.ButtonEvent, on); break;
                 case 1003: SetMouse(VtMouseMode.AnyEvent, on); break;
+                case 1004: _focusReporting = on; break;
                 case 1005: SetMouseEncoding(VtMouseEncoding.Utf8, on); break;
                 case 1006: SetMouseEncoding(VtMouseEncoding.Sgr, on); break;
                 case 1015: SetMouseEncoding(VtMouseEncoding.Urxvt, on); break;
@@ -405,7 +421,11 @@ public sealed partial class VtScreen
                     SetAlternateWithCursor(on);
                     break;
                 case 2004: _bracketedPaste = on; break;
-                case 2026: _synchronizedOutput = on; break;
+                case 2026:
+                    if (on && !_synchronizedOutput) BeginSynchronizedOutput();
+                    if (!on) _holding = false;
+                    _synchronizedOutput = on;
+                    break;
             }
         }
     }
@@ -510,6 +530,8 @@ public sealed partial class VtScreen
         _reverseVideo = false;
         _bracketedPaste = false;
         _synchronizedOutput = false;
+        _holding = false;
+        _focusReporting = false;
         _mouseMode = VtMouseMode.None;
         _mouseEncoding = VtMouseEncoding.Default;
         _keyboardMain.Clear();
