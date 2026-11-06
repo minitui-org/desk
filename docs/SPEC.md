@@ -36,7 +36,7 @@ Rejected names:
 
 ## 3. Prior art and differentiation
 
-Existing projects: vtm (C++, mature, ~1.6k stars), desktop-tui (Rust, built in 2 days), tuiui, artemis-shell, Kern (a bundle of fzf, zellij and framebuffer tools), Twin, Turbo Vision/tvision.
+Existing projects: vtm (C++, mature, ~3.4k stars), desktop-tui (Rust, built in 2 days, ~1.2k stars), tuiui, artemis-shell, Kern (a bundle of fzf, zellij and framebuffer tools), Twin, Turbo Vision/tvision.
 
 Windows and a taskbar in a terminal are already solved. **The gap Desk fills:**
 1. An opinionated, focus-first product, not a tmux with chrome added.
@@ -44,7 +44,7 @@ Windows and a taskbar in a terminal are already solved. **The gap Desk fills:**
 3. A coherent set of first-party apps.
 4. A bare-console mode as a deliberate target.
 
-Before Phase 1, spend an hour with vtm and desktop-tui and write down their friction points. That list feeds Phase 1's acceptance criteria.
+vtm and desktop-tui were tried on 2026-11-05: see [PRIOR-ART.md](PRIOR-ART.md). The friction list feeds Phase 1's exit criteria.
 
 ## 4. Goals and non-goals
 
@@ -108,7 +108,15 @@ Each phase gets its own spec section before implementation begins, with acceptan
   - Status line: clock, app name, notification count
   - Notification queue with Do Not Disturb on by default; notifications are batched and viewed on demand
   - A configurable global prefix key, tmux-style, so hosted apps keep all their other keys
-- Exit criteria: nvim, k9s, htop, bash and Claude Code run correctly, resize correctly and survive app crashes. Shift+Enter reaches Claude Code when the outer terminal reports it. A flood of output (`yes`) doesn't stall input to the shell. Ben uses it for a working session.
+- Exit criteria: nvim, k9s, htop, bash and Claude Code run correctly, resize correctly and survive app crashes. Ben uses it for a working session. From [PRIOR-ART.md](PRIOR-ART.md):
+  - **Keys:** every key but the prefix reaches the app unchanged, shown by a byte probe compared with the bare terminal. Shift+Enter reaches Claude Code when the outer terminal reports it.
+  - **Screen:** a hosted app gets the full terminal minus one row.
+  - **Keyboard:** everything works without a mouse.
+  - **No config:** with no `apps.json`, Desk opens a shell.
+  - **Crashes:** a dead app keeps its last screen and shows how it ended, with restart and close.
+  - **Resize:** the app follows the outer terminal with nothing left off-screen.
+  - **Floods:** Ctrl+C during `yes` gets back to a prompt in under 500 ms.
+  - **Queries:** nvim starts with no terminal-response warning.
 - Sub-phases, one branch and PR each: **1a** PTY, **1b** parser and screen, **1c** input encoding and query replies, **1d** the shell.
 
 **Phase 2 — Native apps**
@@ -355,4 +363,5 @@ public sealed class TerminalViewBuilder               // MiniTui's builder conve
 ### 11.6 Acceptance for Phase 0
 - [ ] §8 and §11 reviewed by Ben; each **Decision** accepted or changed.
 - [ ] §9 recorded as decided.
-- [ ] The Phase 1 spec section (with its own acceptance criteria) is written before 1a starts, using the vtm and desktop-tui friction list from §3.
+- [x] The vtm and desktop-tui friction list from §3 is written.
+- [ ] The Phase 1 spec section is written before 1a starts.
