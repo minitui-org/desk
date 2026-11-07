@@ -175,6 +175,7 @@ App → shell:
 | `title` | `text` | Short status in the status line and switcher. Control characters are stripped |
 | `notify` | `id, title, body, urgency, actions?` | Queued by the shell's policy. `urgency` is `low`, `normal` or `high`. `actions` is a list of `{id, label}`. A repeated `id` replaces the earlier one from that app |
 | `launch` | `appId, args` | Open another app from `apps.json`. An unknown id is ignored |
+| `quitDeclined` | | The user chose to stay after a `quitRequest` |
 | `bye` | | The app is closing the connection on purpose |
 
 Shell → app:
@@ -184,7 +185,7 @@ Shell → app:
 | `welcome` | `protocol, theme` | The version to use: the lower of the two. `theme` is `light` or `dark` |
 | `focus` | `focused` | Sent when it changes; apps may pause while in the background |
 | `notificationAction` | `id, action` | The user chose an action from `notify.actions` |
-| `quitRequest` | | Polite close. There's no reply: the app exits, or stays and asks the user. The switcher can always kill it |
+| `quitRequest` | | Polite close. The app exits, or asks the user and sends `quitDeclined` if they choose to stay. The shell can always kill it |
 
 ```
 {"type":"hello","appId":"notes-1","name":"Notes","version":"0.1.0","protocol":0}
@@ -212,6 +213,7 @@ public sealed class DeskClient : IAsyncDisposable
     public void SetTitle(string text);
     public void Notify(DeskNotification notification);
     public void Launch(string appId, params string[] args);
+    public void DeclineQuit();                                              // after QuitRequested, if the user chose to stay
     public event Action<bool>? FocusChanged;
     public event Action<string, string>? NotificationAction;                // id, action
     public event Action? QuitRequested;
@@ -500,7 +502,89 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 - [x] Ctrl+C during `yes` gets back to a prompt in under 500 ms.
 - [x] nvim starts with no terminal-response warning, and htop and k9s draw correctly (by hand, [VTTEST.md](VTTEST.md)).
 - [x] Claude Code runs correctly, including Shift+Enter when the outer terminal reports it (by hand, sent as raw bytes, [VTTEST.md](VTTEST.md)).
-- [ ] Ben uses it for a working session.
+- [x] Ben uses it for a working session (2026-11-07).
 
 ### 12.10 Out of scope
 The protocol and socket (Phase 2), splits, floating windows, session persistence, themes beyond MiniTui's light and dark, and packaging.
+
+## 13. Native apps (Phase 2)
+
+### 13.1 Purpose
+Prove the second kind of app (§1): a MiniTui app that opts in with one call, shows its name and status in the shell, routes notifications through it, and behaves identically outside Desk. The apps are also dogfood: each one lists the framework gaps it hit, and each gap becomes a MiniTui issue with its standalone justification (§7). MiniTui core doesn't change for this phase unless such an issue is accepted there.
+
+### 13.2 Repo
+```
+src/MiniTui.Desk.Protocol/          message types, DeskClient and WithDesk (§8.5), with PublicApiAnalyzers
+tests/MiniTui.Desk.Protocol.Tests/
+apps/<Name>/                        one executable per first-party app, with tests beside it
+```
+- `MiniTui.Desk.Protocol` depends only on `MiniTui`, and is trim- and AOT-safe (§5.2). CI's AOT check covers it.
+- Nothing is published in Phase 2. Packaging waits for Phase 4.
+
+### 13.3 Client
+- `Connect` never throws and never blocks the app for long: anything going wrong leaves it inactive (§8.4).
+- A background thread reads, and a bounded queue feeds a background writer. If the shell stops reading, messages are dropped rather than blocking the app.
+- A message that would exceed 64 KiB is dropped by the client, not sent.
+- `DeskClient` events arrive on whichever thread `WithDesk` posts to (§8.5), and raw `DeskClient` users get them on the reader thread, as documented.
+- **Startup:** `appId` comes from `MINITUI_DESK_APP_ID`. The client waits up to 500 ms for `welcome` so that `Theme` is known at startup, and is active but with no theme if it hasn't arrived.
+
+### 13.4 Shell
+- **Socket:** created at startup as in §8.2, removed on exit, with a stale file from a dead shell replaced. Failing to create it is a notification, and Desk carries on with PTY apps only.
+- **Environment:** every child gets `MINITUI_DESK_SOCKET` and `MINITUI_DESK_APP_ID`. The id is the `apps.json` id, or `shell`, plus an instance number: `notes-1`. A restart keeps it.
+- **`hello`:** an `appId` that isn't running closes the connection. Connections follow §8.1.
+- **`title`:** wins over the OSC title for that app while its connection is open. Both still have control characters stripped.
+- **`focus`:** sent on every switch, and when a connection arrives, alongside mode 1004.
+- **`theme`:** `Theme.Current` at `welcome`. MiniTui has no theme-change event, so it isn't sent again.
+
+**Decision: notification policy.** The app's `urgency` is a request, and the user's Do Not Disturb wins:
+
+| | DND on (default) | DND off |
+|---|---|---|
+| `low` | Count | Count |
+| `normal` | Count | Count and toast |
+| `high` | Count | Count and toast |
+
+OSC notifications stay `normal`. A repeated `id` replaces the entry, keeps its position, and only counts as unread if it was read.
+
+**Actions:** the notifications list (`Ctrl+N`) becomes selectable. Enter on an entry with actions lists them, and choosing one sends `notificationAction`. Actions from an app that has gone are hidden, and the entry stays.
+
+**Decision: `launch`** is honored only from the foreground app, as a background app shouldn't take the screen. It starts a new instance of the `apps.json` entry, with `args` after the entry's own, and brings it to the front. From the background it's ignored.
+
+**Decision: closing a native app.** An app with an open connection can stay and ask the user (§8.3), so nothing is killed behind its back:
+- `Ctrl+X` sends `quitRequest`, and the status line says so while the app is still running: "Asked Notes to quit, Ctrl+X again to force". Pressing it again takes the hangup path of §12.5.
+- `Ctrl+Q` sends `quitRequest` to every connected app, and closes the others as in §12.5 only once those have all gone. If a connected app stays open, Desk brings it to the front so the user can answer it, and the status line says "Waiting for Notes, Ctrl+Q again to force". Pressing it again takes the hangup path for whatever is left. There's no time limit, so being slow to answer can't lose work.
+- **Staying:** `quitDeclined` cancels the quit and clears the status line, and every app that hasn't exited keeps running. An app that never sends it can't hold Desk: switching to another app also cancels the wait.
+- Apps with no connection behave as they do today.
+
+### 13.5 First-party apps
+Each is one executable, uses `WithDesk`, and has a `README` section listing the gaps it hit, with links to their MiniTui issues. They keep their data in plain files under `$XDG_DATA_HOME/<app>`.
+
+- **Notes:** Markdown files, with a list and an editor. Sets its title to the open note.
+- **Tasks:** a list with due dates, stored as plain text. Notifies when something falls due, using actions for done and snooze.
+- **Reader:** reads local Markdown and text files, with `launch` opening Notes from a passage.
+
+### 13.6 Sub-phases and acceptance
+One branch and PR each.
+
+**2a — Protocol and client.** §8 and §13.3.
+- [ ] Every message in §8.3 round-trips, and unknown types and fields are ignored.
+- [ ] With either variable missing, or an unreachable socket, every member is a no-op and nothing throws.
+- [ ] A dropped connection, a silent shell, and a shell that stops reading never block or throw into the app.
+- [ ] `WithDesk` delivers events through `App.Post`, and with no handler `quitRequest` calls `app.Quit`.
+- [ ] An AOT build of a small app using it publishes with no warnings, and runs.
+
+**2b — Shell side.** §8.1, §8.2 and §13.4.
+- [ ] The socket directory is mode `0700`, another user's `/tmp` directory is refused, and the socket goes away on exit.
+- [ ] A 64 KiB+ line closes that connection, anything before `hello` is ignored, and no client behaviour can take down the shell.
+- [ ] Titles, the notification policy table, replacement by `id`, actions, `launch`, both close paths and `quitDeclined` are tested with `TestBackend` and with a real client in a real child.
+- [ ] Several connections on one id follow §8.1, including a MiniTui app started from a hosted bash.
+
+**2c, 2d, 2e — One app each.** §13.5.
+- [ ] The app works with the keyboard alone, and with no existing data.
+- [ ] Its screens are identical in Desk and outside it, tested by running it both ways. Only the status line and notifications differ.
+- [ ] Its gaps are filed against MiniTui.
+
+**Phase exit:** the apps show their name and status in the shell and route notifications through it, and Ben uses them in a working session.
+
+### 13.7 Out of scope
+Clipboard over the protocol, rendering over the socket, IPC between apps (§8.4), a manifest format and `dotnet new` template (Phase 4), and publishing packages.
