@@ -193,7 +193,7 @@ public sealed partial class ShellTests : IDisposable
     [Fact]
     public void On_a_short_screen_the_list_comes_before_the_footer()
     {
-        Start(height: 8);
+        Start(height: 9); // room for the filter line, its divider and one row
         Until(() => Shell.Foreground is not null);
         Harness.Press("ctrl+space");
         Assert.Contains("Shell", Screen, StringComparison.Ordinal);
@@ -294,6 +294,35 @@ public sealed partial class ShellTests : IDisposable
         Launch("two");
         Launch("Shell");
         Assert.Equal(4, Shell.Apps.Count);
+        Assert.Equal("Shell", Shell.Foreground!.Name);
+    }
+
+    [Fact]
+    public void A_click_on_a_row_of_the_launcher_starts_it_and_a_click_below_the_rows_does_nothing()
+    {
+        Start(config: WithApps(Entry("two", "exec cat")));
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space");
+        Harness.Type("two");                   // one row, and an empty one under it
+        var row = Array.FindIndex(Harness.Lines, l => l.Contains('├', StringComparison.Ordinal)) + 1;   // under the filter line
+        Assert.Contains("│ two", Harness.Lines[row], StringComparison.Ordinal);
+        Assert.DoesNotContain("Shell", Harness.Lines[row + 1], StringComparison.Ordinal);
+        Harness.Click(20, row + 1);
+        Assert.True(Harness.App.Overlays.Any);
+        Assert.Single(Shell.Apps);
+
+        Harness.Click(20, row);
+        Assert.False(Harness.App.Overlays.Any);
+        Assert.Equal("two", Shell.Foreground!.Name);
+    }
+
+    [Fact]
+    public void Up_from_the_first_row_of_the_launcher_wraps_to_the_last()
+    {
+        Start(config: WithApps(Entry("two", "exec cat")));
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space up enter");
+        Assert.Equal(2, Shell.Apps.Count);
         Assert.Equal("Shell", Shell.Foreground!.Name);
     }
 

@@ -5,7 +5,8 @@ internal readonly record struct AppListRow(string Label, string? Detail = null, 
 
 /// <summary>
 /// A list to choose from, filtered by typing: the switcher and the launcher (spec §12.4), and the notifications. ↑ ↓
-/// move, Tab swaps to the other list if there is one, Enter or a click chooses, Esc or a click outside closes.
+/// move, Tab swaps to the other list if there is one, Enter or a click chooses, Esc or a click outside closes. The
+/// list is MiniTui's filter list.
 /// </summary>
 internal sealed class AppListOverlay : Overlay
 {
@@ -18,11 +19,7 @@ internal sealed class AppListOverlay : Overlay
     private readonly Action? _swap;
     private readonly string _empty;
     private readonly string[] _footer;
-    private readonly TextFieldState _filter = new();
-    private List<int> _matches;
-    private string _filtered = "";
-    private int _selected;
-    private int _offset;
+    private readonly FilterListState _list;
     private Rect _rowsArea;
 
     public AppListOverlay(
@@ -40,8 +37,8 @@ internal sealed class AppListOverlay : Overlay
         _swap = swap;
         _footer = [.. footer];
         _empty = empty;
-        _matches = [.. Enumerable.Range(0, _rows.Length)];
-        _selected = _rows.Length == 0 ? 0 : Math.Clamp(selected, 0, _rows.Length - 1);
+        _list = new FilterListState(_rows.Select(r => new FilterRow(r.Label, r.Detail, r.Hint))) { Wraps = true };
+        if (_rows.Length > 0) _list.Select(Math.Clamp(selected, 0, _rows.Length - 1));
     }
 
     public override string? Title => _title;
@@ -49,17 +46,18 @@ internal sealed class AppListOverlay : Overlay
     public override bool CloseOnClickOutside => true;
 
     /// <summary>The rows showing, in order, for tests.</summary>
-    internal IEnumerable<string> Showing => _matches.Select(i => _rows[i].Label);
+    internal IEnumerable<string> Showing => _list.Matches.Select(i => _rows[i].Label);
 
-    internal bool FilterIsEmpty => _filter.Text.Length == 0;
+    internal bool FilterIsEmpty => _list.Filter.Text.Length == 0;
 
     /// <summary>The launcher or the switcher, where the shell's commands work (spec §12.3).</summary>
     internal bool TakesShellCommands { get; init; }
 
+    // The filter line, its divider, the rows and the footer
     public override Rect Placement(Rect screen)
     {
         var rows = Math.Clamp(_rows.Length, 1, MaxRows);
-        return Centered(screen, Math.Max(64, screen.Width * 60 / 100), rows + FooterRows + 3);
+        return Centered(screen, Math.Max(64, screen.Width * 60 / 100), rows + FooterRows + 4);
     }
 
     public override bool HandleKey(ConsoleKeyInfo key)
@@ -71,49 +69,23 @@ internal sealed class AppListOverlay : Overlay
             case ConsoleKey.Enter when (key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) == 0:
                 Choose();
                 return true;
-            case ConsoleKey.UpArrow:
-                Move(-1);
-                return true;
-            case ConsoleKey.DownArrow:
-                Move(1);
-                return true;
             case ConsoleKey.Tab:
                 _swap?.Invoke();
                 return true;
         }
-        _filter.HandleKey(key);
-        Refilter();
+        _list.HandleKey(key);
         return true;
     }
 
-    public override bool HandlePaste(string text)
-    {
-        var handled = _filter.Paste(text);
-        Refilter();
-        return handled;
-    }
+    public override bool HandlePaste(string text) => _list.HandlePaste(text);
 
+    // A click on a row chooses it; the list selects it, and the wheel and the pointer move the selection
     public override bool HandleMouse(MouseEvent mouse)
     {
         ArgumentNullException.ThrowIfNull(mouse);
-        switch (mouse.Action)
-        {
-            case MouseAction.ScrollUp:
-                _selected = Math.Max(0, _selected - 1);
-                return true;
-            case MouseAction.ScrollDown:
-                _selected = Math.Clamp(_selected + 1, 0, Math.Max(0, _matches.Count - 1));
-                return true;
-        }
-        if (_rowsArea.Contains(mouse.X, mouse.Y) && _offset + (mouse.Y - _rowsArea.Y) is var row && row < _matches.Count)
-        {
-            if (mouse.Action == MouseAction.Move) _selected = row;
-            if (mouse.IsClick)
-            {
-                _selected = row;
-                Choose();
-            }
-        }
+        _list.HandleMouse(mouse);
+        var shown = Math.Min(_list.Matches.Count, _rowsArea.Height);
+        if (mouse.IsClick && _rowsArea.Contains(mouse.X, mouse.Y) && mouse.Y - _rowsArea.Y < shown) Choose();
         return true;
     }
 
@@ -124,25 +96,24 @@ internal sealed class AppListOverlay : Overlay
         _rowsArea = default;
         if (area.IsEmpty) return;
 
-        new TextFieldBuilder().State(_filter).Focused(ctx.Focused).Placeholder("Type to filter").Draw(buf, area with { Height = 1 });
-
         var theme = Theme.Current;
-        var footer = Math.Clamp(area.Height - 2, 0, FooterRows);
+        var footer = Math.Clamp(area.Height - 3, 0, FooterRows);
         DrawFooter(buf, new Rect(area.X, area.Bottom - footer, area.Width, footer), theme);
 
-        var rows = new Rect(area.X, area.Y + 1, area.Width, area.Height - 1 - footer);
-        if (rows.Height <= 0) return;
-        if (_matches.Count == 0)
+        // Over the frame's column of padding each side, so the rows line up with the footer and the divider meets the border
+        var list = new Rect(area.X - 1, area.Y, area.Width + 2, area.Height - footer);
+        Widget.FilterList(_list)
+            .Placeholder("Type to filter")
+            .Empty(_rows.Length == 0 ? _empty : "Nothing matches")
+            .Focused(ctx.Focused)
+            .Draw(buf, list);
+        if (list.Height >= 2)
         {
-            buf.SetString(rows.X, rows.Y, _rows.Length == 0 ? _empty : "Nothing matches", theme.TextMuted, rows.Width);
-            return;
+            // Joined to the frame's sides, as the palette's is
+            buf.SetString(list.X - 1, list.Y + 1, "├", theme.Border.Patch(theme.ModalBorder), 1);
+            buf.SetString(list.Right, list.Y + 1, "┤", theme.Border.Patch(theme.ModalBorder), 1);
         }
-
-        if (_selected < _offset) _offset = _selected;
-        if (_selected >= _offset + rows.Height) _offset = _selected - rows.Height + 1;
-        var visible = Math.Min(_matches.Count - _offset, rows.Height);
-        _rowsArea = rows with { Height = visible };
-        for (var i = 0; i < visible; i++) DrawRow(buf, rows with { Y = rows.Y + i, Height = 1 }, _offset + i, theme);
+        _rowsArea = list with { Y = list.Y + 2, Height = Math.Max(0, list.Height - 2) };
     }
 
     // Each key goes on the first row with room for it, and what doesn't fit is left to the help
@@ -163,45 +134,10 @@ internal sealed class AppListOverlay : Overlay
             if (rows[i] is { } row) buf.SetString(area.X, area.Y + i, row, theme.TextMuted, area.Width);
     }
 
-    private void DrawRow(CellBuffer buf, Rect row, int index, Theme theme)
-    {
-        var item = _rows[_matches[index]];
-        var hintWidth = item.Hint is { } hint ? UnicodeWidth.Of(hint) : 0;
-        var room = row.Width - (hintWidth > 0 ? hintWidth + 2 : 0);
-        var used = room > 0 ? buf.SetString(row.X, row.Y, item.Label, theme.Text, room) : 0;
-        if (item.Detail is { } detail && room - used > 2)
-            buf.SetString(row.X + used + 2, row.Y, detail, theme.TextMuted, room - used - 2);
-        if (hintWidth > 0 && hintWidth < row.Width)
-            buf.SetString(row.Right - hintWidth, row.Y, item.Hint!, theme.TextMuted, hintWidth);
-        if (index == _selected) buf.SetStyle(row, theme.Selection);
-    }
-
     private void Choose()
     {
-        if (_selected >= _matches.Count) return;
-        var item = _matches[_selected];
+        if (_list.Selected is not { } item) return;
         Close();
         _choose(item);
-    }
-
-    private void Move(int by)
-    {
-        if (_matches.Count > 0) _selected = (_selected + by + _matches.Count) % _matches.Count;
-    }
-
-    // Best match first; an empty filter keeps the order and the first row selected
-    private void Refilter()
-    {
-        var text = _filter.Text;
-        if (text == _filtered) return;
-        _filtered = text;
-        _matches = [.. Enumerable.Range(0, _rows.Length)
-            .Select(i => (Index: i, Match: Fuzzy.Match(text, _rows[i].Label)))
-            .Where(m => m.Match is not null)
-            .OrderByDescending(m => m.Match!.Value.Score)
-            .ThenBy(m => m.Index)
-            .Select(m => m.Index)];
-        _selected = 0;
-        _offset = 0;
     }
 }

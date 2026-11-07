@@ -216,6 +216,7 @@ public sealed class ScreenTests : IDisposable
         File.SetUnixFileMode(_store.Directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
 
         Press("ctrl+q");
+        Press("ctrl+c");
 
         Assert.False(Harness.App.Stopping.IsCancellationRequested);
         Assert.Contains("Can't save “Plan”", Screen, StringComparison.Ordinal);
@@ -240,7 +241,66 @@ public sealed class ScreenTests : IDisposable
         Press("esc");
         Press("down");
         Assert.Equal("A", Notes.Current);
+        Assert.Equal("A", Notes.Highlighted);
         Assert.Contains("unsaved", Screen, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_list_keeps_the_open_note_selected_when_the_notes_change()
+    {
+        Seed("A", "", minutesAgo: 1);
+        Seed("B", "", minutesAgo: 2);
+        Start();
+        Press("down");
+        Assert.Equal("B", Notes.Current);
+        Seed("C", "");                         // newest, so first
+        Notes.Refresh();
+        Assert.Equal(["C", "A", "B"], Notes.Showing);
+        Assert.Equal("B", Notes.Highlighted);
+        Assert.Equal("B", Notes.Current);
+    }
+
+    [Fact]
+    public void A_click_opens_a_note_a_double_click_edits_it_and_a_click_in_the_editor_moves_the_cursor()
+    {
+        Seed("A", "hello", minutesAgo: 1);
+        Seed("B", "world", minutesAgo: 2);
+        Start();                               // the list is 25 columns, its rows from the fourth line
+        Harness.Click(3, 4);
+        Harness.RunUntilIdle();
+        Assert.Equal("B", Notes.Current);
+        Assert.False(Notes.IsEditing);
+
+        Harness.DoubleClick(3, 3);
+        Harness.RunUntilIdle();
+        Assert.Equal("A", Notes.Current);
+        Assert.True(Notes.IsEditing);
+
+        Harness.Click(29, 1);                  // the editor's text starts at column 27
+        Harness.RunUntilIdle();
+        Assert.Equal(new TextPosition(0, 2), Notes.Text.Cursor);
+    }
+
+    [Fact]
+    public void Spaces_around_a_new_name_are_dropped()
+    {
+        Start();
+        New("  Spaced  ");
+        Assert.Equal("Spaced", Notes.Current);
+        Assert.NotNull(_store.Read("Spaced"));
+    }
+
+    [Fact]
+    public void Ctrl_keys_edit_the_filter_and_the_apps_keys_still_work_from_the_list()
+    {
+        Seed("Shopping", "");
+        Seed("Work plan", "", minutesAgo: 1);
+        Start();
+        Type("work");
+        Press("ctrl+w");                       // deletes the word typed
+        Assert.Equal(["Shopping", "Work plan"], Notes.Showing);
+        Press("ctrl+n");
+        Assert.True(Harness.App.Overlays.Any);
     }
 
     // ---- Changed elsewhere ----
@@ -363,7 +423,7 @@ public sealed class ScreenTests : IDisposable
         Press("home");
         Assert.Equal("Note 00", Notes.Current);
         Press("pgdn");
-        Assert.Equal("Note 08", Notes.Current); // a page is the 8 rows showing
+        Assert.Equal("Note 07", Notes.Current); // a page is the 7 rows showing, under the filter and its divider
         Press("pgup");
         Assert.Equal("Note 00", Notes.Current);
         Press("down");
@@ -372,8 +432,8 @@ public sealed class ScreenTests : IDisposable
         Press("up");
         Assert.Equal("Note 01", Notes.Current);
         Press("end");
-        Assert.Contains(Harness.Lines, l => l.StartsWith("│  Note 29", StringComparison.Ordinal)); // scrolled to it
-        Assert.DoesNotContain(Harness.Lines, l => l.StartsWith("│  Note 00", StringComparison.Ordinal));
+        Assert.Contains(Harness.Lines, l => l.StartsWith("│ Note 29", StringComparison.Ordinal)); // scrolled to it
+        Assert.DoesNotContain(Harness.Lines, l => l.StartsWith("│ Note 00", StringComparison.Ordinal));
     }
 
     [Fact]
