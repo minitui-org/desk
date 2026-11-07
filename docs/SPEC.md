@@ -525,7 +525,8 @@ apps/<Name>/                        one executable per first-party app, with tes
 - `Connect` never throws and never blocks the app for long: anything going wrong leaves it inactive (§8.4).
 - A background thread reads, and a bounded queue feeds a background writer. If the shell stops reading, messages are dropped rather than blocking the app.
 - A message that would exceed 64 KiB is dropped by the client, not sent.
-- `DeskClient` events arrive on whichever thread `WithDesk` posts to (§8.5), and raw `DeskClient` users get them on the reader thread, as documented.
+- With `WithDesk`, events run on the app's thread through `App.Post`, when the app next runs, so handlers added before `Run` hear everything. Raw `DeskClient` users get them on a background thread, one at a time. One that arrives before its handler is added is missed, and an exception from a handler there is ignored.
+- When the connection drops, an app in the background is told it has the focus, so it doesn't stay paused.
 - **Startup:** `appId` comes from `MINITUI_DESK_APP_ID`. The client waits up to 500 ms for `welcome` so that `Theme` is known at startup, and is active but with no theme if it hasn't arrived.
 
 ### 13.4 Shell
@@ -567,11 +568,11 @@ Each is one executable, uses `WithDesk`, and has a `README` section listing the 
 One branch and PR each.
 
 **2a — Protocol and client.** §8 and §13.3.
-- [ ] Every message in §8.3 round-trips, and unknown types and fields are ignored.
-- [ ] With either variable missing, or an unreachable socket, every member is a no-op and nothing throws.
-- [ ] A dropped connection, a silent shell, and a shell that stops reading never block or throw into the app.
-- [ ] `WithDesk` delivers events through `App.Post`, and with no handler `quitRequest` calls `app.Quit`.
-- [ ] An AOT build of a small app using it publishes with no warnings, and runs.
+- [x] Every message in §8.3 round-trips, and unknown types and fields are ignored.
+- [x] With either variable missing, or an unreachable socket, every member is a no-op and nothing throws.
+- [x] A dropped connection, a silent shell, and a shell that stops reading never block or throw into the app.
+- [x] `WithDesk` delivers events through `App.Post`, and with no handler `quitRequest` calls `app.Quit`.
+- [x] An AOT build of a small app using it publishes with no warnings, and runs.
 
 **2b — Shell side.** §8.1, §8.2 and §13.4.
 - [ ] The socket directory is mode `0700`, another user's `/tmp` directory is refused, and the socket goes away on exit.

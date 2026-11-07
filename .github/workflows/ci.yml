@@ -29,3 +29,5 @@ jobs:
         run: |
           dotnet publish tests/MiniTui.Vt.AotHost/MiniTui.Vt.AotHost.csproj --configuration Release --output aot
           ./aot/MiniTui.Vt.AotHost
+          dotnet publish tests/MiniTui.Desk.Protocol.AotHost/MiniTui.Desk.Protocol.AotHost.csproj --configuration Release --output aot-protocol
+          ./aot-protocol/MiniTui.Desk.Protocol.AotHost
