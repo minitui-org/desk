@@ -23,6 +23,13 @@ Add apps to `~/.config/tuidesk/apps.json`, and set the prefix or turn Do Not Dis
 { "prefix": "ctrl+space", "doNotDisturb": true }
 ```
 
+Notes is the first app made for Desk: Markdown notes in plain files, saved as you type. Run it on its own, or add it
+to `apps.json` to see the open note in Desk's status line. Its keys are in [`apps/Notes`](apps/Notes/README.md).
+
+```bash
+dotnet run --project apps/Notes
+```
+
 To try the terminal emulator on its own, run a shell in a pane of an ordinary MiniTui app. Ctrl+Q quits.
 
 ```bash
