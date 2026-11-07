@@ -22,16 +22,23 @@ var shell = Task.Run(() =>
     using var socket = listener.Accept();
     var received = new StringBuilder();
     var buffer = new byte[4096];
+    var (welcomed, answered) = (false, false);
     while (!received.ToString().Contains("\"bye\"", StringComparison.Ordinal))
     {
         var count = socket.Receive(buffer);
         if (count == 0) break;
         received.Append(Encoding.UTF8.GetString(buffer, 0, count));
-        if (received.ToString().Contains("\"hello\"", StringComparison.Ordinal) && !received.ToString().Contains("sent", StringComparison.Ordinal))
+        if (!welcomed && received.ToString().Contains("\"hello\"", StringComparison.Ordinal))
         {
-            received.Append("sent");
-            socket.Send("""{"type":"welcome","protocol":0,"theme":"dark","later":1}"""u8.ToArray());
-            socket.Send("\n{\"type\":\"focus\",\"focused\":false}\n{\"type\":\"notificationAction\",\"id\":\"a\",\"action\":\"done\"}\n"u8.ToArray());
+            welcomed = true;
+            socket.Send("{\"type\":\"welcome\",\"protocol\":0,\"theme\":\"dark\",\"later\":1}\n"u8.ToArray());
+        }
+
+        // Once the title shows the client's handlers are in place, as what arrives before them is missed
+        if (!answered && received.ToString().Contains("\"title\"", StringComparison.Ordinal))
+        {
+            answered = true;
+            socket.Send("{\"type\":\"focus\",\"focused\":false}\n{\"type\":\"notificationAction\",\"id\":\"a\",\"action\":\"done\"}\n"u8.ToArray());
         }
     }
     return received.ToString();
