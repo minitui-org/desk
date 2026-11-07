@@ -549,7 +549,7 @@ OSC notifications stay `normal`. A repeated `id` replaces the entry, keeps its p
 **Decision: `launch`** is honored only from the foreground app, as a background app shouldn't take the screen. It starts a new instance of the `apps.json` entry, with `args` after the entry's own, and brings it to the front. From the background it's ignored.
 
 **Decision: closing a native app.** An app with an open connection can stay and ask the user (§8.3), so nothing is killed behind its back:
-- `Ctrl+X` sends `quitRequest`. If the app is still there and `Ctrl+X` is pressed again, it gets the hangup path of §12.5.
+- `Ctrl+X` sends `quitRequest`, and the status line says so while the app is still running: "Asked Notes to quit, Ctrl+X again to force". Pressing it again takes the hangup path of §12.5.
 - `Ctrl+Q` sends `quitRequest` to every connected app, waits 3 seconds, then follows §12.5 for whatever is left. It doesn't wait for an app that asks the user.
 - Apps with no connection behave as they do today.
 
