@@ -27,8 +27,9 @@
   <ItemGroup>
     <AdditionalFiles Include="PublicAPI.Shipped.txt" />
     <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
-    <InternalsVisibleTo Include="MiniTui.Desk" />
+    <InternalsVisibleTo Include="tuidesk" />
     <InternalsVisibleTo Include="MiniTui.Desk.Protocol.Tests" />
+    <InternalsVisibleTo Include="MiniTui.Desk.Tests" />
   </ItemGroup>
 
 </Project>

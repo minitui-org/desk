@@ -35,6 +35,7 @@ public sealed class EndToEndTests : IDisposable
             Environment = new Dictionary<string, string?>
             {
                 ["XDG_CONFIG_HOME"] = _files.Path("config"),
+                ["XDG_RUNTIME_DIR"] = _files.Path("run"),
                 ["SHELL"] = _files.Script(shellBody),
             },
         }, terminal =>
@@ -364,6 +365,60 @@ public sealed class EndToEndTests : IDisposable
         Type("two\r");
         UntilFile(second, s => s.Length > 0);
         Assert.Contains("rgb:1212/3434/5656", File.ReadAllText(second), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_native_app_is_told_the_theme_from_the_real_terminals_background()
+    {
+        // The first app asks until Desk knows the color, so the native app starts after it does
+        var first = _files.Path("first");
+        var log = _files.Path("native.log");
+        var app = Path.Combine(AppContext.BaseDirectory, "desk-test-app");
+        Start(
+            $"stty raw -echo; (while :; do printf '\\033]11;?\\007'; sleep 0.05; done) & exec cat > '{first}'",
+            apps: $$"""[{ "id": "native", "name": "native", "command": "{{app}}", "args": ["Native", "{{log}}"] }]""",
+            background: Color.Rgb(0xf8, 0xf8, 0xf0));
+        UntilFile(first, s => s.Contains("rgb:f8f8/f8f8/f0f0", StringComparison.Ordinal));
+
+        Press(Prefix);
+        UntilShows("Launch");
+        Type("native\r");
+        UntilFile(log, s => s.Contains("started", StringComparison.Ordinal));
+        Assert.Contains("started active=True theme=light", File.ReadAllText(log), StringComparison.Ordinal);
+        UntilShows("Native");
+    }
+
+    // ---- Native apps ----
+
+    [Fact]
+    public void The_socket_is_there_while_Desk_runs_and_gone_after()
+    {
+        var directory = _files.Path("run/tuidesk");
+        Start("PS1='prompt> ' exec /bin/sh -i");
+        UntilShows("prompt> ");
+        var socket = Assert.Single(Directory.GetFiles(directory, "*.sock"));
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, File.GetUnixFileMode(directory));
+
+        Type("exit\r");
+        UntilShows("Launch");
+        Press(Key('\u001b', ConsoleKey.Escape));
+        UntilShows("No apps");
+        Press(Prefix, Ctrl('q'));
+        Until(() => Desk.HasExited, Text);
+        Assert.False(File.Exists(socket));
+    }
+
+    [Fact]
+    public void The_socket_goes_when_the_terminal_hangs_up()
+    {
+        var directory = _files.Path("run/tuidesk");
+        Start("PS1='prompt> ' exec /bin/sh -i");
+        UntilShows("prompt> ");
+        var socket = Assert.Single(Directory.GetFiles(directory, "*.sock"));
+
+        Desk.Hangup();
+        Until(() => Desk.HasExited, Text);
+        Assert.False(File.Exists(socket));
     }
 
     // ---- Clipboard ----

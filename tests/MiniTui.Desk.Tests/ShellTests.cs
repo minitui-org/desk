@@ -3,7 +3,7 @@ using MiniTui.Vt;
 namespace MiniTui.Desk.Tests;
 
 /// <summary>The shell's behaviour, with a TestBackend and scripted input, hosting real children.</summary>
-public sealed class ShellTests : IDisposable
+public sealed partial class ShellTests : IDisposable
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(20);
 
@@ -18,6 +18,7 @@ public sealed class ShellTests : IDisposable
 
     public void Dispose()
     {
+        DisposeClients();
         _shell?.Shutdown();
         _harness?.Dispose();
         _files.Dispose();
@@ -26,7 +27,7 @@ public sealed class ShellTests : IDisposable
     private void Start(string? shellScript = null, DeskConfig? config = null, TimeProvider? time = null, int width = 80, int height = 24)
     {
         config ??= new DeskConfig();
-        config = config with { ShellCommand = _files.Script(shellScript ?? "exec cat") };
+        config = config with { ShellCommand = _files.Script(shellScript ?? "exec cat"), RuntimeDirectory = config.RuntimeDirectory ?? _files.Path("run") };
         _shell = new DeskShell(config, time);
         _harness = new ComponentHarness(_shell, width, height, time);
     }
@@ -375,7 +376,7 @@ public sealed class ShellTests : IDisposable
 
         Harness.Press(open);
         Harness.Press("ctrl+n");
-        Assert.IsNotType<AppListOverlay>(Harness.App.Overlays.Top);
+        Assert.Contains("Notifications", Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top).Title, StringComparison.Ordinal);
         UntilShows("No notifications");
     }
 

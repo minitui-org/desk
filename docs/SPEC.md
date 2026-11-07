@@ -531,11 +531,11 @@ apps/<Name>/                        one executable per first-party app, with tes
 
 ### 13.4 Shell
 - **Socket:** created at startup as in §8.2, removed on exit, with a stale file from a dead shell replaced. Failing to create it is a notification, and Desk carries on with PTY apps only.
-- **Environment:** every child gets `MINITUI_DESK_SOCKET` and `MINITUI_DESK_APP_ID`. The id is the `apps.json` id, or `shell`, plus an instance number: `notes-1`. A restart keeps it.
+- **Environment:** every child gets `MINITUI_DESK_SOCKET` and `MINITUI_DESK_APP_ID`. The id is the `apps.json` id, or `shell`, plus an instance number: `notes-1`. An entry with no id is `app-1`, and can't be opened by `launch`. Numbers aren't reused within a session, and a restart keeps the id. Without a socket, both variables are removed, so a Desk running inside Desk doesn't pass on the outer one's.
 - **`hello`:** an `appId` that isn't running closes the connection. Connections follow §8.1.
 - **`title`:** wins over the OSC title for that app while its connection is open. Both still have control characters stripped.
 - **`focus`:** sent on every switch, and when a connection arrives, alongside mode 1004.
-- **`theme`:** `Theme.Current` at `welcome`. MiniTui has no theme-change event, so it isn't sent again.
+- **`theme`:** from the terminal's background (MiniTui's `TerminalInfo.IsDark`) at `welcome`, and `dark` until the terminal has answered. MiniTui themes carry no light or dark flag, so `Theme.Current` can't say. The terminal's background isn't watched for changes, so it isn't sent again.
 
 **Decision: notification policy.** The app's `urgency` is a request, and the user's Do Not Disturb wins:
 
@@ -547,13 +547,13 @@ apps/<Name>/                        one executable per first-party app, with tes
 
 OSC notifications stay `normal`. A repeated `id` replaces the entry, keeps its position, and only counts as unread if it was read.
 
-**Actions:** the notifications list (`Ctrl+N`) becomes selectable. Enter on an entry with actions lists them, and choosing one sends `notificationAction`. Actions from an app that has gone are hidden, and the entry stays.
+**Actions:** the notifications list (`Ctrl+N`) becomes selectable, and filters by typing like the other lists. An entry with actions is marked `actions`, Enter lists them, and choosing one sends `notificationAction` on the connection that sent the notification. Actions from a connection that has closed are hidden, and the entry stays.
 
 **Decision: `launch`** is honored only from the foreground app, as a background app shouldn't take the screen. It starts a new instance of the `apps.json` entry, with `args` after the entry's own, and brings it to the front. From the background it's ignored.
 
 **Decision: closing a native app.** An app with an open connection can stay and ask the user (§8.3), so nothing is killed behind its back:
 - `Ctrl+X` sends `quitRequest`, and the status line says so while the app is still running: "Asked Notes to quit, Ctrl+X again to force". Pressing it again takes the hangup path of §12.5.
-- `Ctrl+Q` sends `quitRequest` to every connected app, and closes the others as in §12.5 only once those have all gone. If a connected app stays open, Desk brings it to the front so the user can answer it, and the status line says "Waiting for Notes, Ctrl+Q again to force". Pressing it again takes the hangup path for whatever is left. There's no time limit, so being slow to answer can't lose work.
+- `Ctrl+Q` still confirms first when apps are running (§12.3). It then sends `quitRequest` to every connected app, and closes the others as in §12.5 only once those have all gone. If a connected app stays open, Desk brings it to the front so the user can answer it, and the status line says "Waiting for Notes, Ctrl+Q again to force". Pressing it again takes the hangup path for whatever is left. There's no time limit, so being slow to answer can't lose work.
 - **Staying:** `quitDeclined` cancels the quit and clears the status line, and every app that hasn't exited keeps running. An app that never sends it can't hold Desk: switching to another app also cancels the wait.
 - Apps with no connection behave as they do today.
 
@@ -575,10 +575,10 @@ One branch and PR each.
 - [x] An AOT build of a small app using it publishes with no warnings, and runs.
 
 **2b — Shell side.** §8.1, §8.2 and §13.4.
-- [ ] The socket directory is mode `0700`, another user's `/tmp` directory is refused, and the socket goes away on exit.
-- [ ] A 64 KiB+ line closes that connection, anything before `hello` is ignored, and no client behaviour can take down the shell.
-- [ ] Titles, the notification policy table, replacement by `id`, actions, `launch`, both close paths and `quitDeclined` are tested with `TestBackend` and with a real client in a real child.
-- [ ] Several connections on one id follow §8.1, including a MiniTui app started from a hosted bash.
+- [x] The socket directory is mode `0700`, another user's `/tmp` directory is refused, and the socket goes away on exit.
+- [x] A 64 KiB+ line closes that connection, anything before `hello` is ignored, and no client behaviour can take down the shell.
+- [x] Titles, the notification policy table, replacement by `id`, actions, `launch`, both close paths and `quitDeclined` are tested with `TestBackend` and with a real client in a real child.
+- [x] Several connections on one id follow §8.1, including a MiniTui app started from a hosted bash.
 
 **2c, 2d, 2e — One app each.** §13.5.
 - [ ] The app works with the keyboard alone, and with no existing data.

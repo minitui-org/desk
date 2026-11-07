@@ -1,14 +1,16 @@
 using System.ComponentModel;
 using System.Globalization;
+using MiniTui.Desk.Protocol;
 using MiniTui.Vt;
 
 namespace MiniTui.Desk;
 
 /// <summary>
 /// The workspace (spec §12): one app on the screen, one row of status, and one key taken from the app, the prefix.
-/// Everything here runs on the UI thread, apart from the handlers that <see cref="Start"/> adds to a terminal.
+/// Everything here runs on the UI thread, apart from the handlers that <see cref="Start"/> adds to a terminal. What
+/// native apps say over the protocol is in the other half of this class.
 /// </summary>
-internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : Screen
+internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = null) : Screen
 {
     private const int MaxNotifications = 100;
     private static readonly TimeSpan GraceAfterKill = TimeSpan.FromSeconds(1);
@@ -23,16 +25,30 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
     private readonly List<HostedApp> _recent = [];   // most recently used first
     private readonly List<VtTerminal> _closing = [];
     private readonly List<Notification> _notifications = []; // oldest first
+    private readonly Dictionary<string, int> _instances = []; // the last number given to each id
     private volatile HostedApp? _foreground;
     private Rect _pane;
     private bool _started;
     private bool _quitting;
     private bool _doNotDisturb = config.DoNotDisturb;
-    private int _unread;
     private Color? _defaultForeground;
     private Color? _defaultBackground;
+    private bool? _terminalIsDark;
 
-    internal readonly record struct Notification(DateTimeOffset Time, string Text);
+    /// <summary>An entry in the list. A native app's can be replaced, by its id, and can offer actions.</summary>
+    internal sealed class Notification(DateTimeOffset time, string text)
+    {
+        public DateTimeOffset Time { get; set; } = time;
+        public string Text { get; set; } = text;
+        public bool Read { get; set; }
+        public string? AppId { get; init; }
+        public string? Id { get; init; }
+        public DeskConnection? Source { get; set; }
+        public IReadOnlyList<DeskAction> Actions { get; set; } = [];
+
+        /// <summary>Only while the app that sent them is still there to hear the choice.</summary>
+        public IReadOnlyList<DeskAction> LiveActions => Source is { IsOpen: true } ? Actions : [];
+    }
 
     public override string Title => "Desk";
     public override bool PopOnEscape => false;
@@ -40,7 +56,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
     internal IReadOnlyList<HostedApp> Apps => _apps;
     internal HostedApp? Foreground => _foreground;
     internal IReadOnlyList<Notification> Notifications => _notifications;
-    internal int Unread => _unread;
+    internal int Unread => _notifications.Count(n => !n.Read);
     internal bool DoNotDisturb => _doNotDisturb;
 
     /// <summary>End whatever is left. For when the app has stopped, however that happened.</summary>
@@ -55,6 +71,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
         _recent.Clear();
         _closing.Clear();
         _foreground = null;
+        StopServer();
     }
 
     protected override void OnMount()
@@ -65,6 +82,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
         App.OnMouse(OnMouse);
         App.OnEvent(OnEvent);
         foreach (var error in config.Errors) Notify(error);
+        StartServer();
     }
 
     public override void Render(CellBuffer buf, Rect area, RenderContext ctx)
@@ -102,7 +120,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
     private void DrawStatus(CellBuffer buf, Rect row)
     {
         var right = new List<Span>();
-        if (_unread > 0) right.Add(new Span(_unread.ToString(CultureInfo.InvariantCulture) + " new  ", default));
+        if (Unread is > 0 and var unread) right.Add(new Span(unread.ToString(CultureInfo.InvariantCulture) + " new  ", default));
         if (_doNotDisturb) right.Add(new Span("DND  ", Theme.Current.TextMuted));
         right.Add(new Span(Now().ToString("HH:mm", CultureInfo.InvariantCulture), default));
 
@@ -112,8 +130,10 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
     private string StatusText()
     {
         if (_quitting) return "Closing apps...";
+        if (_quitWaiting && WaitingToQuit().FirstOrDefault() is { } waiting) return $"Waiting for {OneLine(waiting.Name)}, Ctrl+Q again to force";
         if (_foreground is not { } app) return "No apps";
         if (app.Failure is { } failure) return $"{app.Name}: {failure}  r restart  c close";
+        if (app.QuitAsked) return $"Asked {OneLine(app.Name)} to quit, Ctrl+X again to force";
         return app.Title is { Length: > 0 } title ? $"{app.Name}: {OneLine(title)}" : app.Name;
     }
 
@@ -129,7 +149,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
                 App.Overlays.Close(top);
                 return true;
             }
-            if (top is not AppListOverlay list || ListCommand(list, key) is not { } command) return false;
+            if (top is not AppListOverlay { TakesShellCommands: true } list || ListCommand(list, key) is not { } command) return false;
             App.Overlays.Close(list);
             command();
             return true;
@@ -161,14 +181,14 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
             var position = key.KeyChar - '1';
             return () =>
             {
-                if (position < _apps.Count) SwitchTo(_apps[position]);
+                if (position < _apps.Count) ChooseApp(_apps[position]);
             };
         }
         if (CloseKey.Matches(key))
         {
             return () =>
             {
-                if (_foreground is { } app) Close(app);
+                if (_foreground is { } app) AskToClose(app);
             };
         }
         if (QuitKey.Matches(key)) return AskToQuit;
@@ -210,6 +230,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
         if (e is not TerminalInfoEvent { Info: var info }) return;
         _defaultForeground = info.Foreground ?? _defaultForeground;
         _defaultBackground = info.Background ?? _defaultBackground;
+        _terminalIsDark = info.IsDark ?? _terminalIsDark;
         foreach (var app in _apps) ApplyDefaultColors(app.Terminal);
     }
 
@@ -225,14 +246,18 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
         ShowList(" Switch ", rows, selected: 1, "Tab launcher", ShowLauncher, i =>
         {
             // The list doesn't follow apps that end while it's open
-            if (_apps.Contains(apps[i])) SwitchTo(apps[i]);
+            if (_apps.Contains(apps[i])) ChooseApp(apps[i]);
         });
     }
 
     private void ShowLauncher()
     {
-        AppEntry[] entries = [.. config.Apps, new AppEntry { Name = "Shell", Command = config.ShellCommand }];
-        ShowList(" Launch ", entries.Select(e => new AppListRow(e.DisplayName, e.Command)), selected: 0, "Tab switcher", ShowSwitcher, i => Launch(entries[i]));
+        AppEntry[] entries = [.. config.Apps, new AppEntry { Id = ShellId, Name = "Shell", Command = config.ShellCommand }];
+        ShowList(" Launch ", entries.Select(e => new AppListRow(e.DisplayName, e.Command)), selected: 0, "Tab switcher", ShowSwitcher, i =>
+        {
+            CancelQuitWait();
+            Launch(entries[i]);
+        });
     }
 
     private void ShowList(string title, IEnumerable<AppListRow> rows, int selected, string swapHint, Action swap, Action<int> choose)
@@ -243,16 +268,29 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
             "F1 help", swapHint, "Ctrl+X close", "Ctrl+Q quit", "Ctrl+N notifications", "Ctrl+D DND",
             $"Ctrl+S send {config.Prefix}", "1-9 go to",
         ];
-        App.Overlays.Show(new AppListOverlay(title, rows, selected, choose, swap, footer));
+        App.Overlays.Show(new AppListOverlay(title, rows, selected, choose, swap, footer) { TakesShellCommands = true });
     }
 
+    // Newest first. Enter on one with actions lists them, and choosing one tells the app (spec §13.4).
     private void ShowNotifications()
     {
-        _unread = 0;
-        var lines = Enumerable.Reverse(_notifications)
-            .Select(n => new Line(n.Time.ToString("HH:mm", CultureInfo.InvariantCulture) + "  " + n.Text))
-            .ToArray();
-        _ = App.Overlays.ShowMessageAsync("Notifications", lines.Length > 0 ? new Text(lines) : Text.From("No notifications"));
+        var entries = Enumerable.Reverse(_notifications).ToArray();
+        foreach (var entry in entries) entry.Read = true;
+        var rows = entries.Select(n => new AppListRow(
+            n.Time.ToString("HH:mm", CultureInfo.InvariantCulture) + "  " + n.Text,
+            Hint: n.LiveActions.Count > 0 ? "actions" : null));
+        App.Overlays.Show(new AppListOverlay(" Notifications ", rows, 0, i => ShowActions(entries[i]), null, ["Enter shows actions", "Esc close"], "No notifications"));
+    }
+
+    private void ShowActions(Notification notification)
+    {
+        var actions = notification.LiveActions;
+        if (actions.Count == 0) return;
+        var rows = actions.Select(a => new AppListRow(a.Label));
+        App.Overlays.Show(new AppListOverlay(" Actions ", rows, 0, i =>
+        {
+            notification.Source?.Send(new DeskMessage { Type = DeskWire.NotificationAction, Id = notification.Id, Action = actions[i].Id });
+        }, null, ["Enter choose", "Esc close"]));
     }
 
     private void ShowHelp()
@@ -277,6 +315,13 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
 
     private void AskToQuit()
     {
+        // Again, while native apps are deciding: whatever is left gets the hangup
+        if (_quitWaiting)
+        {
+            Quit();
+            return;
+        }
+
         var running = _apps.Count(a => a.Failure is null);
         if (running == 0)
         {
@@ -289,7 +334,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
         _ = dialog.Result.ContinueWith(
             answer =>
             {
-                if (answer.Result) App.Post(Quit);
+                if (answer.Result) App.Post(BeginQuit);
             },
             CancellationToken.None,
             TaskContinuationOptions.OnlyOnRanToCompletion,
@@ -300,7 +345,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
 
     private void StartFirstApp()
     {
-        var shell = new AppEntry { Name = Path.GetFileName(config.ShellCommand), Command = config.ShellCommand };
+        var shell = new AppEntry { Id = ShellId, Name = Path.GetFileName(config.ShellCommand), Command = config.ShellCommand };
         var app = Start(shell, reportFailure: false) ?? Start(shell with { Name = "sh", Command = DeskConfig.FallbackShell });
         if (app is not null) SwitchTo(app);
         else ShowLauncher();
@@ -314,7 +359,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
 
     private HostedApp? Start(AppEntry entry, bool reportFailure = true)
     {
-        var app = new HostedApp(entry);
+        var app = new HostedApp(entry, NewId(entry));
         if (!StartTerminal(app, reportFailure)) return null;
         _apps.Add(app);
         _recent.Add(app);
@@ -326,7 +371,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
     {
         try
         {
-            var info = DeskConfig.StartInfo(app.Entry, Math.Max(1, _pane.Width), Math.Max(1, _pane.Height));
+            var info = DeskConfig.StartInfo(app.Entry, Math.Max(1, _pane.Width), Math.Max(1, _pane.Height), _server?.SocketPath, app.Id);
             VtTerminal.Start(info, terminal =>
             {
                 app.Terminal = terminal;
@@ -389,11 +434,13 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
         if (HostedApp.EndedCleanly(exit))
         {
             Remove(app);
-            return;
         }
-
-        app.Failure = exit;
-        if (!ReferenceEquals(_foreground, app)) Notify($"{app.Name} {exit}");
+        else
+        {
+            app.Failure = exit;
+            if (!ReferenceEquals(_foreground, app)) Notify($"{app.Name} {exit}");
+        }
+        CheckQuitWait();
     }
 
     private void Restart(HostedApp app)
@@ -473,18 +520,35 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
 
         _foreground = null;
         if (_recent.Count > 0) SwitchTo(_recent[0]);
-        else if (!_quitting) ShowLauncher();
+        else if (!_quitting && !_quitWaiting) ShowLauncher();
+    }
+
+    // The user picked it, which means they aren't answering a native app that's deciding whether to quit
+    private void ChooseApp(HostedApp app)
+    {
+        if (!ReferenceEquals(app, _foreground)) CancelQuitWait();
+        SwitchTo(app);
     }
 
     private void SwitchTo(HostedApp app)
     {
         var previous = _foreground;
-        if (!ReferenceEquals(previous, app)) previous?.Terminal.HandleFocus(false);
+        var changed = !ReferenceEquals(previous, app);
+        if (changed && previous is not null)
+        {
+            previous.QuitAsked = false;
+            previous.Terminal.HandleFocus(false);
+            SendFocus(previous, false);
+        }
         _foreground = app;
         app.WantsAttention = false;
         _recent.Remove(app);
         _recent.Insert(0, app);
-        if (!ReferenceEquals(previous, app)) app.Terminal.HandleFocus(true);
+        if (changed)
+        {
+            app.Terminal.HandleFocus(true);
+            SendFocus(app, true);
+        }
     }
 
     private void ResizeAll()
@@ -506,13 +570,14 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
 
     // ---- Notifications ----
 
-    private void Notify(string text)
+    // From the terminal or the shell itself, which count as normal
+    private void Notify(string text) => Add(new Notification(Now(), OneLine(text)), toast: true);
+
+    private void Add(Notification notification, bool toast)
     {
-        text = OneLine(text);
-        _notifications.Add(new Notification(Now(), text));
+        _notifications.Add(notification);
         if (_notifications.Count > MaxNotifications) _notifications.RemoveAt(0);
-        _unread = Math.Min(_unread + 1, MaxNotifications);
-        if (!_doNotDisturb) App.Toasts.Push(text);
+        if (toast && !_doNotDisturb) App.Toasts.Push(notification.Text);
     }
 
     private static string OneLine(string text) => string.Create(text.Length, text, static (span, source) =>

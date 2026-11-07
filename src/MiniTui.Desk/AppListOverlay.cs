@@ -4,8 +4,8 @@ namespace MiniTui.Desk;
 internal readonly record struct AppListRow(string Label, string? Detail = null, string? Hint = null);
 
 /// <summary>
-/// A list to choose from, filtered by typing: the switcher and the launcher (spec §12.4). ↑ ↓ move, Tab swaps to the
-/// other list, Enter or a click chooses, Esc or a click outside closes. The shell handles its own keys before these.
+/// A list to choose from, filtered by typing: the switcher and the launcher (spec §12.4), and the notifications. ↑ ↓
+/// move, Tab swaps to the other list if there is one, Enter or a click chooses, Esc or a click outside closes.
 /// </summary>
 internal sealed class AppListOverlay : Overlay
 {
@@ -15,7 +15,8 @@ internal sealed class AppListOverlay : Overlay
     private readonly string _title;
     private readonly AppListRow[] _rows;
     private readonly Action<int> _choose;
-    private readonly Action _swap;
+    private readonly Action? _swap;
+    private readonly string _empty;
     private readonly string[] _footer;
     private readonly TextFieldState _filter = new();
     private List<int> _matches;
@@ -24,13 +25,21 @@ internal sealed class AppListOverlay : Overlay
     private int _offset;
     private Rect _rowsArea;
 
-    public AppListOverlay(string title, IEnumerable<AppListRow> rows, int selected, Action<int> choose, Action swap, IEnumerable<string> footer)
+    public AppListOverlay(
+        string title,
+        IEnumerable<AppListRow> rows,
+        int selected,
+        Action<int> choose,
+        Action? swap,
+        IEnumerable<string> footer,
+        string empty = "No apps running")
     {
         _title = title;
         _rows = [.. rows];
         _choose = choose;
         _swap = swap;
         _footer = [.. footer];
+        _empty = empty;
         _matches = [.. Enumerable.Range(0, _rows.Length)];
         _selected = _rows.Length == 0 ? 0 : Math.Clamp(selected, 0, _rows.Length - 1);
     }
@@ -43,6 +52,9 @@ internal sealed class AppListOverlay : Overlay
     internal IEnumerable<string> Showing => _matches.Select(i => _rows[i].Label);
 
     internal bool FilterIsEmpty => _filter.Text.Length == 0;
+
+    /// <summary>The launcher or the switcher, where the shell's commands work (spec §12.3).</summary>
+    internal bool TakesShellCommands { get; init; }
 
     public override Rect Placement(Rect screen)
     {
@@ -66,7 +78,7 @@ internal sealed class AppListOverlay : Overlay
                 Move(1);
                 return true;
             case ConsoleKey.Tab:
-                _swap();
+                _swap?.Invoke();
                 return true;
         }
         _filter.HandleKey(key);
@@ -122,7 +134,7 @@ internal sealed class AppListOverlay : Overlay
         if (rows.Height <= 0) return;
         if (_matches.Count == 0)
         {
-            buf.SetString(rows.X, rows.Y, _rows.Length == 0 ? "No apps running" : "Nothing matches", theme.TextMuted, rows.Width);
+            buf.SetString(rows.X, rows.Y, _rows.Length == 0 ? _empty : "Nothing matches", theme.TextMuted, rows.Width);
             return;
         }
 
