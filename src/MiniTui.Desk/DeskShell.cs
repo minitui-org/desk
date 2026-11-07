@@ -12,15 +12,20 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
 {
     private const int MaxNotifications = 100;
     private static readonly TimeSpan GraceAfterKill = TimeSpan.FromSeconds(1);
+    private static readonly KeyBinding CloseKey = KeyBinding.Parse("ctrl+x");
+    private static readonly KeyBinding QuitKey = KeyBinding.Parse("ctrl+q");
+    private static readonly KeyBinding NotificationsKey = KeyBinding.Parse("ctrl+n");
+    private static readonly KeyBinding DoNotDisturbKey = KeyBinding.Parse("ctrl+d");
+    private static readonly KeyBinding SendPrefixKey = KeyBinding.Parse("ctrl+s");
+    private static readonly KeyBinding HelpKey = KeyBinding.Parse("f1");
 
-    private readonly List<HostedApp> _apps = [];     // positions, for prefix 1-9
+    private readonly List<HostedApp> _apps = [];     // positions, for 1-9
     private readonly List<HostedApp> _recent = [];   // most recently used first
     private readonly List<VtTerminal> _closing = [];
     private readonly List<Notification> _notifications = []; // oldest first
     private volatile HostedApp? _foreground;
     private Rect _pane;
     private bool _started;
-    private bool _prefixPending;
     private bool _quitting;
     private bool _doNotDisturb = config.DoNotDisturb;
     private int _unread;
@@ -86,7 +91,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
         }
         else if (_foreground is null && !_quitting && !pane.IsEmpty)
         {
-            buf.SetString(pane.X, pane.Y, $"No apps. {config.Prefix} then Space starts one, then q quits.", Theme.Current.TextMuted, pane.Width);
+            buf.SetString(pane.X, pane.Y, $"No apps. {config.Prefix} starts one, or Ctrl+Q there quits.", Theme.Current.TextMuted, pane.Width);
         }
 
         if (area.Height > 0) DrawStatus(buf, new Rect(area.X, area.Bottom - 1, area.Width, 1));
@@ -107,7 +112,6 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
     private string StatusText()
     {
         if (_quitting) return "Closing apps...";
-        if (_prefixPending) return "Tab switch  Space launch  1-9 go to  n notifications  d DND  x close  q quit  ? help  Esc cancel";
         if (_foreground is not { } app) return "No apps";
         if (app.Failure is { } failure) return $"{app.Name}: {failure}  r restart  c close";
         return app.Title is { Length: > 0 } title ? $"{app.Name}: {OneLine(title)}" : app.Name;
@@ -117,27 +121,24 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
 
     private bool OnKey(ConsoleKeyInfo key)
     {
-        if (App.Overlays.Any)
+        if (App.Overlays.Top is { } top)
         {
-            // Left alone, the app would take this as a request to quit
-            if (key.KeyChar == '\x03' && App.Overlays.Top is { } top)
+            // Ctrl+C, left alone, the app would take as a request to quit
+            if (key.KeyChar == '\x03' || config.Prefix.Matches(key))
             {
                 App.Overlays.Close(top);
                 return true;
             }
-            return false;
+            if (top is not AppListOverlay list || ListCommand(list, key) is not { } command) return false;
+            App.Overlays.Close(list);
+            command();
+            return true;
         }
         if (_quitting) return true;
 
-        if (_prefixPending)
-        {
-            _prefixPending = false;
-            RunPrefixed(key);
-            return true;
-        }
         if (config.Prefix.Matches(key))
         {
-            _prefixPending = true;
+            ShowLauncher();
             return true;
         }
 
@@ -152,30 +153,30 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
         return true;
     }
 
-    private void RunPrefixed(ConsoleKeyInfo key)
+    // What a key does from either list, or null if it's the list's: typing filters, so these can't be plain letters
+    private Action? ListCommand(AppListOverlay list, ConsoleKeyInfo key)
     {
-        if (config.Prefix.Matches(key))
+        if (key.Modifiers == 0 && key.KeyChar is >= '1' and <= '9' && list.FilterIsEmpty)
         {
-            _foreground?.Terminal.HandleKey(key);
-            return;
+            var position = key.KeyChar - '1';
+            return () =>
+            {
+                if (position < _apps.Count) SwitchTo(_apps[position]);
+            };
         }
-        if (key.Modifiers is not (0 or ConsoleModifiers.Shift)) return;
-
-        switch (key.KeyChar)
+        if (CloseKey.Matches(key))
         {
-            case '\t': ShowSwitcher(); break;
-            case ' ': ShowLauncher(); break;
-            case >= '1' and <= '9':
-                if (key.KeyChar - '1' < _apps.Count) SwitchTo(_apps[key.KeyChar - '1']);
-                break;
-            case 'n': ShowNotifications(); break;
-            case 'd': _doNotDisturb = !_doNotDisturb; break;
-            case 'x':
+            return () =>
+            {
                 if (_foreground is { } app) Close(app);
-                break;
-            case 'q': AskToQuit(); break;
-            case '?': ShowHelp(); break;
+            };
         }
+        if (QuitKey.Matches(key)) return AskToQuit;
+        if (NotificationsKey.Matches(key)) return ShowNotifications;
+        if (DoNotDisturbKey.Matches(key)) return () => _doNotDisturb = !_doNotDisturb;
+        if (HelpKey.Matches(key)) return ShowHelp;
+        if (SendPrefixKey.Matches(key)) return () => _foreground?.Terminal.HandleKey(config.PrefixKey);
+        return null;
     }
 
     private bool OnPaste(string text)
@@ -221,7 +222,7 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
             a.Name,
             a.Failure?.ToString() ?? (a.Title is { Length: > 0 } title ? OneLine(title) : null),
             (_apps.IndexOf(a) + 1).ToString(CultureInfo.InvariantCulture)));
-        ShowList(" Switch ", rows, selected: 1, i =>
+        ShowList(" Switch ", rows, selected: 1, "Tab launcher", ShowLauncher, i =>
         {
             // The list doesn't follow apps that end while it's open
             if (_apps.Contains(apps[i])) SwitchTo(apps[i]);
@@ -231,14 +232,18 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
     private void ShowLauncher()
     {
         AppEntry[] entries = [.. config.Apps, new AppEntry { Name = "Shell", Command = config.ShellCommand }];
-        ShowList(" Launch ", entries.Select(e => new AppListRow(e.DisplayName, e.Command)), selected: 0, i => Launch(entries[i]));
+        ShowList(" Launch ", entries.Select(e => new AppListRow(e.DisplayName, e.Command)), selected: 0, "Tab switcher", ShowSwitcher, i => Launch(entries[i]));
     }
 
-    private void ShowList(string title, IEnumerable<AppListRow> rows, int selected, Action<int> choose)
+    private void ShowList(string title, IEnumerable<AppListRow> rows, int selected, string swapHint, Action swap, Action<int> choose)
     {
-        _prefixPending = false; // the mouse or an app ending can get here first
         if (App.Overlays.Top is AppListOverlay open) App.Overlays.Close(open);
-        App.Overlays.Show(new AppListOverlay(title, rows, selected, choose));
+        string[] footer =
+        [
+            "F1 help", swapHint, "Ctrl+X close", "Ctrl+Q quit", "Ctrl+N notifications", "Ctrl+D DND",
+            $"Ctrl+S send {config.Prefix}", "1-9 go to",
+        ];
+        App.Overlays.Show(new AppListOverlay(title, rows, selected, choose, swap, footer));
     }
 
     private void ShowNotifications()
@@ -254,18 +259,19 @@ internal sealed class DeskShell(DeskConfig config, TimeProvider? time = null) : 
     {
         var prefix = config.Prefix.ToString();
         _ = App.Overlays.ShowMessageAsync("Keys", Text.From($"""
-            Every key goes to the app, except {prefix}. After it, one key:
+            Every key goes to the app, except {prefix}, which opens the launcher.
+            In the launcher and the switcher:
 
-            Tab         Switch to a running app
-            Space       Start an app
-            1-9         The app at that position
-            n           Notifications
-            d           Do Not Disturb: {(_doNotDisturb ? "on" : "off")}
-            x           Close this app
-            q           Quit Desk
-            ?           This help
-            {prefix,-11} Send {prefix} to the app
-            Esc         Cancel
+            Tab         Swap between them
+            Enter       Start or switch to the selected app
+            1-9         Go to the app at that position, before typing a filter
+            Ctrl+X      Close the current app
+            Ctrl+Q      Quit Desk
+            Ctrl+N      Notifications
+            Ctrl+D      Do Not Disturb: {(_doNotDisturb ? "on" : "off")}
+            Ctrl+S      Send {prefix} to the app
+            F1          This help
+            Esc         Close, as {prefix} does
             """));
     }
 

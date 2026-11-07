@@ -18,4 +18,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An example that runs a shell in a pane of an ordinary MiniTui app, and `tools/key_probe.py`, which compares the bytes a program receives with bare tmux.
 
 ### Changed
+- `Ctrl+Space` opens the launcher straight away, and `Tab` swaps it for the switcher, instead of a bar waiting for a second key. Commands moved into both lists, shown in a footer: `Ctrl+X` closes the app, `Ctrl+Q` quits, `Ctrl+N` shows notifications, `Ctrl+D` toggles Do Not Disturb, `Ctrl+S` sends `Ctrl+Space` to the app, and `F1` is help. `1`-`9` work while the filter is empty, and pressing `Ctrl+Space` again closes the list.
 - MiniTui 2.1.1, where Ctrl+J reaches a hosted program as itself on terminals without a keyboard protocol.

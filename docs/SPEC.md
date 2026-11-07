@@ -405,32 +405,31 @@ examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 ### 12.3 Screen and keys
 The top rows are the foreground app, full width. The last row is the status line: app name, the app's title (OSC 0/2), notification count, clock. Do Not Disturb shows as a muted marker.
 
-Every key goes to the foreground app except the prefix, `Ctrl+Space` by default. After the prefix, one key:
+Every key goes to the foreground app except the prefix, `Ctrl+Space` by default, which opens the launcher (§12.4). In the launcher and the switcher, typing filters, so their commands aren't plain letters:
 
 | Key | Action |
 |---|---|
-| `Tab` | The switcher (§12.4) |
-| `Space` | The launcher (§12.4) |
-| `1`–`9` | The app at that position |
-| `n` | Notifications (§12.6) |
-| `d` | Toggle Do Not Disturb |
-| `x` | Close the app (§12.5) |
-| `q` | Quit Desk, confirming if apps are running |
-| `?` | Help |
-| The prefix again | Send it to the app |
-| `Esc`, or anything else | Cancel |
+| `Tab`, `Shift+Tab` | Swap between the launcher and the switcher |
+| `1`–`9` | The app at that position, while the filter is empty |
+| `Ctrl+X` | Close the current app (§12.5), whichever row is selected |
+| `Ctrl+Q` | Quit Desk, confirming if apps are running |
+| `Ctrl+N` | Notifications (§12.6) |
+| `Ctrl+D` | Toggle Do Not Disturb |
+| `Ctrl+S` | Send the prefix to the app |
+| `F1` | Help |
+| `Esc`, or the prefix again | Close, sending nothing |
 
-While waiting for that key, the status line shows the choices, and there's no timeout. Pastes go to the app, wrapped by §11.3.
+Apart from `Tab`, each of these closes the list. A footer in the list shows the keys that fit, and help lists them all. A prefix configured to one of these keys stays the prefix, and that command has no key. Pastes go to the app, wrapped by §11.3.
 
 The mouse goes to the app when it asked for mouse events, with no shell interpretation. Clicks on the status line open the switcher. The shell uses `WithMouse` and `WithHover`, since a hosted app may ask for any-motion events. Focus reporting (mode 1004) is sent to apps that enabled it when they're switched to and from.
 
 Only the foreground app's clipboard writes (§11.4) are forwarded, so a program out of sight can't replace what the user copied.
 
 ### 12.4 Switcher and launcher
-**Decision:** two lists, each with one job, both behind the prefix so that `Ctrl+Space` stays the only key taken from hosted apps.
+**Decision:** two lists, each with one job, both behind the prefix so that `Ctrl+Space` stays the only key taken from hosted apps. The prefix opens the launcher straight away, as starting an app is a main reason to press it, and `Tab` swaps it for the switcher.
 
-- **Switcher (`Tab`):** running apps in most-recently-used order, with the previous app selected, so `Ctrl+Space`, `Tab`, `Enter` goes back to it. It can't start anything.
-- **Launcher (`Space`):** apps from `apps.json`, plus a shell. It always starts a new instance.
+- **Launcher:** apps from `apps.json`, plus a shell. It always starts a new instance.
+- **Switcher:** running apps in most-recently-used order, with the previous app selected, so `Ctrl+Space`, `Tab`, `Enter` goes back to it. It can't start anything.
 
 Alt+Tab isn't used: Windows and most Linux desktops take it before the terminal sees it, and a terminal usually can't report Alt's release. `Alt+Tab` can be offered as an optional binding once Phase 3's bare console exists.
 
@@ -442,7 +441,7 @@ Alt+Tab isn't used: Windows and most Linux desktops take it before the terminal 
 - **Exit 0, or Ctrl+C (exit 130, or killed by SIGINT):** the app closes and the previous one comes to the front.
 - **Any other non-zero exit, or killed by another signal:** the last screen stays, frozen, and the status line says how it ended (`exited 1`, `killed by SIGKILL`) with `r` to restart and `c` to close. In the background, it also adds a notification.
 - **Decision: the last app closing** opens the launcher rather than quitting, so typing `exit` once doesn't end the session.
-- **Close (`x`):** SIGHUP, then SIGKILL after 3 seconds. No protocol is involved until Phase 2.
+- **Close (`Ctrl+X`):** SIGHUP, then SIGKILL after 3 seconds. No protocol is involved until Phase 2.
 - **Quit:** closes every app the same way, then restores the terminal.
 - **Resize:** every app is resized when the terminal is, including background ones, so they're right when switched to.
 
@@ -452,7 +451,7 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 - A bell from a background app ("Name wants attention"). A bell from the foreground app does nothing.
 - A background app ending with a failure (§12.5).
 
-**Do Not Disturb is on by default:** notifications only increase the count, and `prefix n` lists them. With it off, they also appear as a toast. The queue is capped at 100, dropping the oldest, and doesn't survive a restart.
+**Do Not Disturb is on by default:** notifications only increase the count, and `Ctrl+N` in the launcher or switcher lists them. With it off, they also appear as a toast. The queue is capped at 100, dropping the oldest, and doesn't survive a restart.
 
 ### 12.7 Config
 `~/.config/tuidesk/config.json` and `apps.json` (`$XDG_CONFIG_HOME/tuidesk` when that's set). Both are optional, read at startup, and parsed with System.Text.Json source generation. A broken file doesn't stop Desk: it's ignored, with a notification saying why.
@@ -467,7 +466,7 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 ### 12.8 Limits accepted for v1
 - **Cursor shape (DECSCUSR):** ignored, since `CellBuffer` can only place the cursor. A §7 candidate, with undercurl.
 - **Graphics** (Sixel, kitty images): dropped, since a `Cell` holds text.
-- **Nesting** `tuidesk` inside itself works, but the inner one only gets the prefix when it's sent twice.
+- **Nesting** `tuidesk` inside itself works, but the inner one only gets the prefix when the outer one sends it, with `Ctrl+Space`, `Ctrl+S`.
 - **No scrollback, session restore, or detach.** Hosted apps and the terminal handle their own scrollback.
 
 ### 12.9 Sub-phases and acceptance

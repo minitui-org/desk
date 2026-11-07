@@ -10,8 +10,9 @@ row of status, and one key taken from the app. It needs nothing but the .NET 10 
 dotnet run --project src/MiniTui.Desk
 ```
 
-Every key goes to the app except `Ctrl+Space`. After it, press one key: `Space` starts an app, `Tab` switches, `1`-`9`
-go to a position, `x` closes the app, `q` quits, and `?` lists the rest.
+Every key goes to the app except `Ctrl+Space`, which opens the launcher. Type to filter and press `Enter` to start an
+app, `Tab` swaps to the list of running apps, and `Esc` closes. A footer shows the commands: `Ctrl+X` closes the app,
+`Ctrl+Q` quits, and `F1` lists the rest.
 
 Add apps to `~/.config/tuidesk/apps.json`, and set the prefix or turn Do Not Disturb off in `config.json`:
 

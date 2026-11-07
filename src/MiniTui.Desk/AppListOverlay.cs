@@ -4,16 +4,19 @@ namespace MiniTui.Desk;
 internal readonly record struct AppListRow(string Label, string? Detail = null, string? Hint = null);
 
 /// <summary>
-/// A list to choose from, filtered by typing: the switcher and the launcher (spec §12.4). ↑ ↓ and Tab move, Enter or a
-/// click chooses, Esc or a click outside closes.
+/// A list to choose from, filtered by typing: the switcher and the launcher (spec §12.4). ↑ ↓ move, Tab swaps to the
+/// other list, Enter or a click chooses, Esc or a click outside closes. The shell handles its own keys before these.
 /// </summary>
 internal sealed class AppListOverlay : Overlay
 {
     private const int MaxRows = 12;
+    private const int FooterRows = 2;
 
     private readonly string _title;
     private readonly AppListRow[] _rows;
     private readonly Action<int> _choose;
+    private readonly Action _swap;
+    private readonly string[] _footer;
     private readonly TextFieldState _filter = new();
     private List<int> _matches;
     private string _filtered = "";
@@ -21,11 +24,13 @@ internal sealed class AppListOverlay : Overlay
     private int _offset;
     private Rect _rowsArea;
 
-    public AppListOverlay(string title, IEnumerable<AppListRow> rows, int selected, Action<int> choose)
+    public AppListOverlay(string title, IEnumerable<AppListRow> rows, int selected, Action<int> choose, Action swap, IEnumerable<string> footer)
     {
         _title = title;
         _rows = [.. rows];
         _choose = choose;
+        _swap = swap;
+        _footer = [.. footer];
         _matches = [.. Enumerable.Range(0, _rows.Length)];
         _selected = _rows.Length == 0 ? 0 : Math.Clamp(selected, 0, _rows.Length - 1);
     }
@@ -37,10 +42,12 @@ internal sealed class AppListOverlay : Overlay
     /// <summary>The rows showing, in order, for tests.</summary>
     internal IEnumerable<string> Showing => _matches.Select(i => _rows[i].Label);
 
+    internal bool FilterIsEmpty => _filter.Text.Length == 0;
+
     public override Rect Placement(Rect screen)
     {
         var rows = Math.Clamp(_rows.Length, 1, MaxRows);
-        return Centered(screen, Math.Max(40, screen.Width * 60 / 100), rows + 3);
+        return Centered(screen, Math.Max(64, screen.Width * 60 / 100), rows + FooterRows + 3);
     }
 
     public override bool HandleKey(ConsoleKeyInfo key)
@@ -59,7 +66,7 @@ internal sealed class AppListOverlay : Overlay
                 Move(1);
                 return true;
             case ConsoleKey.Tab:
-                Move((key.Modifiers & ConsoleModifiers.Shift) != 0 ? -1 : 1);
+                _swap();
                 return true;
         }
         _filter.HandleKey(key);
@@ -108,11 +115,14 @@ internal sealed class AppListOverlay : Overlay
         new TextFieldBuilder().State(_filter).Focused(ctx.Focused).Placeholder("Type to filter").Draw(buf, area with { Height = 1 });
 
         var theme = Theme.Current;
-        var rows = new Rect(area.X, area.Y + 1, area.Width, area.Height - 1);
+        var footer = Math.Clamp(area.Height - 2, 0, FooterRows);
+        DrawFooter(buf, new Rect(area.X, area.Bottom - footer, area.Width, footer), theme);
+
+        var rows = new Rect(area.X, area.Y + 1, area.Width, area.Height - 1 - footer);
         if (rows.Height <= 0) return;
         if (_matches.Count == 0)
         {
-            buf.SetString(rows.X, rows.Y, "Nothing matches", theme.TextMuted, rows.Width);
+            buf.SetString(rows.X, rows.Y, _rows.Length == 0 ? "No apps running" : "Nothing matches", theme.TextMuted, rows.Width);
             return;
         }
 
@@ -121,6 +131,24 @@ internal sealed class AppListOverlay : Overlay
         var visible = Math.Min(_matches.Count - _offset, rows.Height);
         _rowsArea = rows with { Height = visible };
         for (var i = 0; i < visible; i++) DrawRow(buf, rows with { Y = rows.Y + i, Height = 1 }, _offset + i, theme);
+    }
+
+    // Each key goes on the first row with room for it, and what doesn't fit is left to the help
+    private void DrawFooter(CellBuffer buf, Rect area, Theme theme)
+    {
+        var rows = new string[area.Height];
+        foreach (var item in _footer)
+        {
+            for (var i = 0; i < rows.Length; i++)
+            {
+                var text = rows[i] is { } row ? row + "  " + item : item;
+                if (UnicodeWidth.Of(text) > area.Width) continue;
+                rows[i] = text;
+                break;
+            }
+        }
+        for (var i = 0; i < rows.Length; i++)
+            if (rows[i] is { } row) buf.SetString(area.X, area.Y + i, row, theme.TextMuted, area.Width);
     }
 
     private void DrawRow(CellBuffer buf, Rect row, int index, Theme theme)

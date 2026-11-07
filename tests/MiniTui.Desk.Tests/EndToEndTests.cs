@@ -80,6 +80,8 @@ public sealed class EndToEndTests : IDisposable
 
     private static ConsoleKeyInfo Key(char c, ConsoleKey key) => new(c, key, false, false, false);
 
+    private static ConsoleKeyInfo Ctrl(char letter) => new((char)(letter - 'a' + 1), ConsoleKey.A + (letter - 'a'), false, false, true);
+
     private void Type(string text)
     {
         foreach (var c in text)
@@ -114,7 +116,7 @@ public sealed class EndToEndTests : IDisposable
         Start(string.Format(null, Report, sizes), apps: $$"""[{ "name": "two", "command": "{{_files.Script(string.Format(null, Report, sizes + "2"))}}" }]""");
         UntilFile(sizes, s => s.Trim() == "23 80");
 
-        Press(Prefix, Key(' ', ConsoleKey.Spacebar));
+        Press(Prefix);
         UntilShows("Launch");
         Type("two\r");
         UntilFile(sizes + "2", s => s.Trim() == "23 80");
@@ -221,12 +223,39 @@ public sealed class EndToEndTests : IDisposable
         UntilShows("DND");
 
         Press(Prefix);
-        UntilShows("Tab switch");
-        Press(Key('\u001b', ConsoleKey.Escape));
-        Until(() => !Text().Contains("Tab switch", StringComparison.Ordinal), Text);
+        UntilShows("Tab switcher");
+        Press(Prefix);
+        Until(() => !Text().Contains("Tab switcher", StringComparison.Ordinal), Text);
         Press(Key('b', ConsoleKey.B));
         UntilFile(output, s => s.Length > 0);
         Assert.Equal("b", File.ReadAllText(output));
+    }
+
+    [Fact]
+    public void Ctrl_S_sends_the_prefix_to_the_app()
+    {
+        var output = _files.Path("out");
+        Start($"stty raw -echo; exec cat > '{output}'");
+        Until(() => File.Exists(output), Text);
+        UntilShows("DND");
+
+        Press(Prefix);
+        UntilShows("Tab switcher");
+        Press(Ctrl('s'));
+        UntilFile(output, s => s.Length > 0);
+        Assert.Equal("\0", File.ReadAllText(output));
+    }
+
+    [Fact]
+    public void Tab_swaps_the_launcher_for_the_switcher()
+    {
+        Start("printf ready; exec cat");
+        UntilShows("ready");
+        Press(Prefix);
+        UntilShows("Launch");
+        Press(Key('\t', ConsoleKey.Tab));
+        UntilShows("Switch");
+        Until(() => !Text().Contains("Launch", StringComparison.Ordinal), Text);
     }
 
     // ---- Lifecycle, without a mouse ----
@@ -271,7 +300,7 @@ public sealed class EndToEndTests : IDisposable
 
         Press(Key('\u001b', ConsoleKey.Escape));
         UntilShows("No apps");
-        Press(Prefix, Key('q', ConsoleKey.Q));
+        Press(Prefix, Ctrl('q'));
         Until(() => Desk.HasExited, Text);
         Assert.Equal(new PtyExit(0, null), Desk.Exit);
     }
@@ -286,7 +315,7 @@ public sealed class EndToEndTests : IDisposable
         UntilShows("DND");
         lock (Desk.Lock) Assert.True(Desk.Screen.Modes.AlternateScreen);
 
-        Press(Prefix, Key('q', ConsoleKey.Q));
+        Press(Prefix, Ctrl('q'));
         UntilShows("Close and quit?");
         Press(Key('y', ConsoleKey.Y));
         Until(() => Desk.HasExited, Text);
@@ -309,7 +338,7 @@ public sealed class EndToEndTests : IDisposable
         UntilShows("DND");
 
         var watch = Stopwatch.StartNew();
-        Press(Prefix, Key('q', ConsoleKey.Q));
+        Press(Prefix, Ctrl('q'));
         UntilShows("Close and quit?");
         Press(Key('y', ConsoleKey.Y));
         Until(() => Desk.HasExited, Text);
@@ -330,7 +359,7 @@ public sealed class EndToEndTests : IDisposable
             background: Color.Rgb(0x12, 0x34, 0x56));
         UntilFile(first, s => s.Contains("rgb:1212/3434/5656", StringComparison.Ordinal));
 
-        Press(Prefix, Key(' ', ConsoleKey.Spacebar));
+        Press(Prefix);
         UntilShows("Launch");
         Type("two\r");
         UntilFile(second, s => s.Length > 0);
@@ -355,7 +384,7 @@ public sealed class EndToEndTests : IDisposable
         UntilFile(ready, _ => true);
         Until(() => { lock (clipboard) return clipboard.Count == 1; }, Text);
 
-        Press(Prefix, Key(' ', ConsoleKey.Spacebar));
+        Press(Prefix);
         UntilShows("Launch");
         Type("two\r");
         Until(() => !Text().Contains("Launch", StringComparison.Ordinal), Text);
