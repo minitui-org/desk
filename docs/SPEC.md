@@ -552,8 +552,8 @@ OSC notifications stay `normal`. A repeated `id` replaces the entry, keeps its p
 
 **Decision: closing a native app.** An app with an open connection can stay and ask the user (§8.3), so nothing is killed behind its back:
 - `Ctrl+X` sends `quitRequest`, and the status line says so while the app is still running: "Asked Notes to quit, Ctrl+X again to force". Pressing it again takes the hangup path of §12.5.
-- `Ctrl+Q` sends `quitRequest` to every connected app and closes the others as in §12.5. If a connected app stays open, Desk brings it to the front so the user can answer it, and the status line says "Waiting for Notes, Ctrl+Q again to force". Pressing it again takes the hangup path for whatever is left. There's no time limit, so being slow to answer can't lose work.
-- **Staying:** `quitDeclined` cancels the quit and clears the status line. The other apps are already closed by then. An app that never sends it can't hold Desk: switching to another app also cancels the wait.
+- `Ctrl+Q` sends `quitRequest` to every connected app, and closes the others as in §12.5 only once those have all gone. If a connected app stays open, Desk brings it to the front so the user can answer it, and the status line says "Waiting for Notes, Ctrl+Q again to force". Pressing it again takes the hangup path for whatever is left. There's no time limit, so being slow to answer can't lose work.
+- **Staying:** `quitDeclined` cancels the quit and clears the status line, and every other app is still running. An app that never sends it can't hold Desk: switching to another app also cancels the wait.
 - Apps with no connection behave as they do today.
 
 ### 13.5 First-party apps
