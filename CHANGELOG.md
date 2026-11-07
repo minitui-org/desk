@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `MiniTui.Desk.Protocol`: `DeskClient` and `WithDesk`, one call for a MiniTui app to join Desk. It sets a title, sends notifications and opens other apps, hears about focus, notification actions and requests to quit, and does nothing outside Desk. Spec §8 and §13.3. The shell's side comes next.
 - The spec for Phase 2, native apps (`docs/SPEC.md` §13).
 - `tuidesk`, the shell (spec §12.3 to §12.7): one app on the screen and a status line, with `Ctrl+Space` as the only key taken from the app. A switcher and a launcher, apps that keep their screen and say how they ended when they fail, quiet notifications with Do Not Disturb on by default, and optional config files.
 - `MiniTui.Vt`: `VtTerminal.Start(info, setup)` runs `setup` before any output is read, so a program that rings the bell or asks about its colors as it starts can't get ahead of the handlers.

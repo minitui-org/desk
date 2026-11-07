@@ -1,0 +1,54 @@
+#nullable enable
+MiniTui.Desk.Protocol.DeskAction
+MiniTui.Desk.Protocol.DeskAction.DeskAction(string! Id, string! Label) -> void
+MiniTui.Desk.Protocol.DeskAction.Id.get -> string!
+MiniTui.Desk.Protocol.DeskAction.Id.init -> void
+MiniTui.Desk.Protocol.DeskAction.Label.get -> string!
+MiniTui.Desk.Protocol.DeskAction.Label.init -> void
+MiniTui.Desk.Protocol.DeskAction.<Clone>$() -> MiniTui.Desk.Protocol.DeskAction!
+MiniTui.Desk.Protocol.DeskAction.Deconstruct(out string! Id, out string! Label) -> void
+MiniTui.Desk.Protocol.DeskAction.Equals(MiniTui.Desk.Protocol.DeskAction? other) -> bool
+MiniTui.Desk.Protocol.DeskAppExtensions
+MiniTui.Desk.Protocol.DeskClient
+MiniTui.Desk.Protocol.DeskClient.DeclineQuit() -> void
+MiniTui.Desk.Protocol.DeskClient.DisposeAsync() -> System.Threading.Tasks.ValueTask
+MiniTui.Desk.Protocol.DeskClient.FocusChanged -> System.Action<bool>?
+MiniTui.Desk.Protocol.DeskClient.IsActive.get -> bool
+MiniTui.Desk.Protocol.DeskClient.IsFocused.get -> bool
+MiniTui.Desk.Protocol.DeskClient.Launch(string! appId, params string![]! args) -> void
+MiniTui.Desk.Protocol.DeskClient.NotificationAction -> System.Action<string!, string!>?
+MiniTui.Desk.Protocol.DeskClient.Notify(MiniTui.Desk.Protocol.DeskNotification! notification) -> void
+MiniTui.Desk.Protocol.DeskClient.QuitRequested -> System.Action?
+MiniTui.Desk.Protocol.DeskClient.SetTitle(string! text) -> void
+MiniTui.Desk.Protocol.DeskClient.Theme.get -> string?
+MiniTui.Desk.Protocol.DeskNotification
+MiniTui.Desk.Protocol.DeskNotification.<Clone>$() -> MiniTui.Desk.Protocol.DeskNotification!
+MiniTui.Desk.Protocol.DeskNotification.Actions.get -> System.Collections.Generic.IReadOnlyList<MiniTui.Desk.Protocol.DeskAction!>?
+MiniTui.Desk.Protocol.DeskNotification.Actions.init -> void
+MiniTui.Desk.Protocol.DeskNotification.Body.get -> string!
+MiniTui.Desk.Protocol.DeskNotification.Body.init -> void
+MiniTui.Desk.Protocol.DeskNotification.Deconstruct(out string! Id, out string! Title, out string! Body) -> void
+MiniTui.Desk.Protocol.DeskNotification.DeskNotification(string! Id, string! Title, string! Body) -> void
+MiniTui.Desk.Protocol.DeskNotification.Equals(MiniTui.Desk.Protocol.DeskNotification? other) -> bool
+MiniTui.Desk.Protocol.DeskNotification.Id.get -> string!
+MiniTui.Desk.Protocol.DeskNotification.Id.init -> void
+MiniTui.Desk.Protocol.DeskNotification.Title.get -> string!
+MiniTui.Desk.Protocol.DeskNotification.Title.init -> void
+MiniTui.Desk.Protocol.DeskNotification.Urgency.get -> MiniTui.Desk.Protocol.DeskUrgency
+MiniTui.Desk.Protocol.DeskNotification.Urgency.init -> void
+MiniTui.Desk.Protocol.DeskUrgency
+MiniTui.Desk.Protocol.DeskUrgency.High = 2 -> MiniTui.Desk.Protocol.DeskUrgency
+MiniTui.Desk.Protocol.DeskUrgency.Low = 0 -> MiniTui.Desk.Protocol.DeskUrgency
+MiniTui.Desk.Protocol.DeskUrgency.Normal = 1 -> MiniTui.Desk.Protocol.DeskUrgency
+override MiniTui.Desk.Protocol.DeskAction.Equals(object? obj) -> bool
+override MiniTui.Desk.Protocol.DeskAction.GetHashCode() -> int
+override MiniTui.Desk.Protocol.DeskAction.ToString() -> string!
+override MiniTui.Desk.Protocol.DeskNotification.Equals(object? obj) -> bool
+override MiniTui.Desk.Protocol.DeskNotification.GetHashCode() -> int
+override MiniTui.Desk.Protocol.DeskNotification.ToString() -> string!
+static MiniTui.Desk.Protocol.DeskAction.operator !=(MiniTui.Desk.Protocol.DeskAction? left, MiniTui.Desk.Protocol.DeskAction? right) -> bool
+static MiniTui.Desk.Protocol.DeskAction.operator ==(MiniTui.Desk.Protocol.DeskAction? left, MiniTui.Desk.Protocol.DeskAction? right) -> bool
+static MiniTui.Desk.Protocol.DeskAppExtensions.WithDesk(this MiniTui.App! app, string! name, out MiniTui.Desk.Protocol.DeskClient! client, string? version = null) -> MiniTui.App!
+static MiniTui.Desk.Protocol.DeskClient.Connect(string! name, string? version = null) -> MiniTui.Desk.Protocol.DeskClient!
+static MiniTui.Desk.Protocol.DeskNotification.operator !=(MiniTui.Desk.Protocol.DeskNotification? left, MiniTui.Desk.Protocol.DeskNotification? right) -> bool
+static MiniTui.Desk.Protocol.DeskNotification.operator ==(MiniTui.Desk.Protocol.DeskNotification? left, MiniTui.Desk.Protocol.DeskNotification? right) -> bool

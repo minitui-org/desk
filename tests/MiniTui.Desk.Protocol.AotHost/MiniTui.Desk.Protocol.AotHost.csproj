@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Spec §13.6, 2a: the client works under Native AOT. Published and run by CI; xUnit can't run AOT-compiled. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/MiniTui.Desk.Protocol/MiniTui.Desk.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>
