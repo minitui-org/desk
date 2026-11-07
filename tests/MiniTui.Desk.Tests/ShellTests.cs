@@ -23,12 +23,12 @@ public sealed class ShellTests : IDisposable
         _files.Dispose();
     }
 
-    private void Start(string? shellScript = null, DeskConfig? config = null, TimeProvider? time = null)
+    private void Start(string? shellScript = null, DeskConfig? config = null, TimeProvider? time = null, int width = 80, int height = 24)
     {
         config ??= new DeskConfig();
         config = config with { ShellCommand = _files.Script(shellScript ?? "exec cat") };
         _shell = new DeskShell(config, time);
-        _harness = new ComponentHarness(_shell, 80, 24, time);
+        _harness = new ComponentHarness(_shell, width, height, time);
     }
 
     private void Until(Func<bool> condition, string? what = null)
@@ -47,7 +47,7 @@ public sealed class ShellTests : IDisposable
 
     private void Launch(string filter)
     {
-        Harness.Press("ctrl+space space");
+        Harness.Press("ctrl+space");
         Harness.Type(filter);
         Harness.Press("enter");
     }
@@ -99,33 +99,56 @@ public sealed class ShellTests : IDisposable
     }
 
     [Fact]
-    public void The_prefix_twice_sends_it()
-    {
-        var output = _files.Path("out");
-        Start($"stty raw -echo; exec cat > '{output}'");
-        Thread.Sleep(100);
-        Harness.Press("ctrl+space ctrl+space b");
-        Until(() => File.Exists(output) && File.ReadAllText(output).Contains('b', StringComparison.Ordinal), "the keys");
-        Assert.Equal("\0b", File.ReadAllText(output));
-    }
-
-    [Fact]
-    public void Waiting_for_the_key_shows_the_choices_and_anything_else_cancels()
+    public void The_prefix_opens_the_launcher_and_again_closes_it_sending_nothing()
     {
         var output = _files.Path("out");
         Start($"stty raw -echo; exec cat > '{output}'");
         Thread.Sleep(100);
 
         Harness.Press("ctrl+space");
-        Assert.Contains("Tab switch", Status, StringComparison.Ordinal);
-
-        // The cancelling key isn't sent on
-        Harness.Press("z");
-        Assert.DoesNotContain("Tab switch", Status, StringComparison.Ordinal);
+        Assert.Contains("Launch", Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top).Title, StringComparison.Ordinal);
+        Harness.Press("ctrl+space");
+        Assert.False(Harness.App.Overlays.Any);
 
         Harness.Press("b");
         Until(() => File.Exists(output) && File.ReadAllText(output).Contains('b', StringComparison.Ordinal), "the key");
         Assert.Equal("b", File.ReadAllText(output));
+    }
+
+    [Theory]
+    [InlineData("ctrl+space", "\0")]
+    [InlineData("ctrl+b", "\u0002")]
+    [InlineData("alt+space", "\u001b ")]
+    [InlineData("f5", "\u001b[15~")]
+    public void Ctrl_S_closes_the_list_and_sends_the_prefix(string prefix, string sent)
+    {
+        var output = _files.Path("out");
+        Start($"stty raw -echo; exec cat > '{output}'", new DeskConfig { Prefix = KeyBinding.Parse(prefix) });
+        Thread.Sleep(100);
+
+        Harness.Press(prefix + " ctrl+s");
+        Assert.False(Harness.App.Overlays.Any);
+
+        Harness.Press("b");
+        Until(() => File.Exists(output) && File.ReadAllText(output).Contains('b', StringComparison.Ordinal), "the keys");
+        Assert.Equal(sent + "b", File.ReadAllText(output));
+    }
+
+    [Fact]
+    public void The_prefix_also_closes_help_and_the_quit_question()
+    {
+        Start();
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space f1");
+        Assert.True(Harness.App.Overlays.Any);
+        Harness.Press("ctrl+space");
+        Assert.False(Harness.App.Overlays.Any);
+
+        Harness.Press("ctrl+space ctrl+q");
+        Assert.IsType<ConfirmDialog>(Harness.App.Overlays.Top);
+        Harness.Press("ctrl+space");
+        Assert.False(Harness.App.Overlays.Any);
+        Assert.Single(Shell.Apps);
     }
 
     [Fact]
@@ -133,7 +156,47 @@ public sealed class ShellTests : IDisposable
     {
         Start(config: new DeskConfig { Prefix = KeyBinding.Parse("ctrl+b") });
         Harness.Press("ctrl+b");
-        Assert.Contains("Tab switch", Status, StringComparison.Ordinal);
+        Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top);
+    }
+
+    [Fact]
+    public void A_prefix_that_is_also_a_command_stays_the_prefix()
+    {
+        Start(config: new DeskConfig { Prefix = KeyBinding.Parse("ctrl+x") });
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+x ctrl+x");
+        Assert.False(Harness.App.Overlays.Any);
+        Assert.Single(Shell.Apps);
+    }
+
+    [Fact]
+    public void The_footer_lists_the_keys()
+    {
+        Start();
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space");
+        foreach (var key in new[] { "F1 help", "Tab switcher", "Ctrl+X close", "Ctrl+Q quit", "Ctrl+N notifications", "Ctrl+D DND", "Ctrl+S send ctrl+space", "1-9 go to" })
+            Assert.Contains(key, Screen, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void On_a_narrow_screen_the_footer_drops_keys_but_keeps_help()
+    {
+        Start(width: 44);
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space");
+        Assert.Contains("F1 help", Screen, StringComparison.Ordinal);
+        Assert.DoesNotContain("1-9 go to", Screen, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void On_a_short_screen_the_list_comes_before_the_footer()
+    {
+        Start(height: 8);
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space");
+        Assert.Contains("Shell", Screen, StringComparison.Ordinal);
+        Assert.DoesNotContain("F1 help", Screen, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -175,19 +238,6 @@ public sealed class ShellTests : IDisposable
         Until(() => File.Exists(output) && File.ReadAllText(output).EndsWith('m'), "the release");
         Assert.Equal("\u001b[<0;5;23M\u001b[<32;5;23M\u001b[<0;5;23m", File.ReadAllText(output));
         Assert.False(Harness.App.Overlays.Any);
-    }
-
-    [Fact]
-    public void Opening_a_list_with_the_mouse_stops_waiting_for_the_key()
-    {
-        var output = _files.Path("out");
-        Start($"stty raw -echo; exec cat > '{output}'");
-        Thread.Sleep(100);
-        Harness.Press("ctrl+space");
-        Harness.Click(4, 23);
-        Harness.Press("esc b");
-        Until(() => File.Exists(output) && File.ReadAllText(output).Contains('b', StringComparison.Ordinal), "the key");
-        Assert.Equal("b", File.ReadAllText(output));
     }
 
     // ---- Switcher and launcher ----
@@ -234,7 +284,7 @@ public sealed class ShellTests : IDisposable
         Start(config: WithApps(Entry("two", "exec cat")));
         Until(() => Shell.Foreground is not null);
 
-        Harness.Press("ctrl+space space");
+        Harness.Press("ctrl+space");
         var list = Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top);
         Assert.Equal(["two", "Shell"], list.Showing);
         Harness.Press("esc");
@@ -261,6 +311,96 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("two", Shell.Foreground!.Name);
         Harness.Press("ctrl+space 9");
         Assert.Equal("two", Shell.Foreground!.Name);
+    }
+
+    [Fact]
+    public void A_number_is_part_of_the_filter_once_there_is_one()
+    {
+        Start(config: WithApps(Entry("k9s", "exec cat")));
+        Until(() => Shell.Foreground is not null);
+        var first = Shell.Foreground;
+
+        Harness.Press("ctrl+space");
+        Harness.Type("k9");
+        var list = Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top);
+        Assert.Equal(["k9s"], list.Showing);
+        Assert.Same(first, Shell.Foreground);
+    }
+
+    [Fact]
+    public void Tab_swaps_between_the_lists_and_shift_tab_does_too()
+    {
+        Start(config: WithApps(Entry("two", "exec cat")));
+        Until(() => Shell.Foreground is not null);
+
+        Harness.Press("ctrl+space");
+        Assert.Equal(["two", "Shell"], Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top).Showing);
+        Assert.Contains("Tab switcher", Screen, StringComparison.Ordinal);
+
+        Harness.Press("tab");
+        Assert.Equal([Shell.Apps[0].Name], Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top).Showing);
+        Assert.Contains("Tab launcher", Screen, StringComparison.Ordinal);
+
+        Harness.Press("shift+tab");
+        Assert.Equal(["two", "Shell"], Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top).Showing);
+
+        // One closes both
+        Harness.Press("esc");
+        Assert.False(Harness.App.Overlays.Any);
+    }
+
+    [Fact]
+    public void Letters_filter_and_are_not_commands()
+    {
+        Start(config: WithApps(Entry("xq", "exec cat")));
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space x");
+        Assert.Single(Shell.Apps);
+        Harness.Press("q");
+        Assert.Equal(["xq"], Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top).Showing);
+    }
+
+    [Theory]
+    [InlineData("ctrl+space")]
+    [InlineData("ctrl+space tab")]
+    public void Commands_work_from_either_list_and_close_it(string open)
+    {
+        Start();
+        Until(() => Shell.Foreground is not null);
+
+        Harness.Press(open);
+        Harness.Press("ctrl+d");
+        Assert.False(Shell.DoNotDisturb);
+        Assert.False(Harness.App.Overlays.Any);
+
+        Harness.Press(open);
+        Harness.Press("ctrl+n");
+        Assert.IsNotType<AppListOverlay>(Harness.App.Overlays.Top);
+        UntilShows("No notifications");
+    }
+
+    [Fact]
+    public void Ctrl_X_closes_the_current_app_and_not_the_selected_row()
+    {
+        Start(config: WithApps(Entry("two", "exec cat")));
+        Until(() => Shell.Foreground is not null);
+        var first = Shell.Foreground;
+        Launch("two");
+
+        // The first app is the row selected here
+        Harness.Press("ctrl+space tab ctrl+x");
+        Assert.Same(first, Assert.Single(Shell.Apps));
+        Assert.Same(first, Shell.Foreground);
+    }
+
+    [Fact]
+    public void An_empty_switcher_says_so()
+    {
+        Start("exit 3");
+        Until(() => Status.Contains("exited 3", StringComparison.Ordinal), "the failure");
+        Harness.Press("c");
+        Harness.Press("tab");
+        UntilShows("No apps running");
     }
 
     [Fact]
@@ -376,7 +516,7 @@ public sealed class ShellTests : IDisposable
         Launch("two");
         Thread.Sleep(100);
 
-        Harness.Press("ctrl+space x");
+        Harness.Press("ctrl+space ctrl+x");
         Assert.Same(first, Shell.Foreground);
         Assert.Single(Shell.Apps);
         Until(() => File.Exists(hung), "the hangup");
@@ -392,7 +532,7 @@ public sealed class ShellTests : IDisposable
         Thread.Sleep(100);
         var pid = Shell.Foreground!.Terminal.Pid;
 
-        Harness.Press("ctrl+space x");
+        Harness.Press("ctrl+space ctrl+x");
         Until(() => !File.Exists($"/proc/{pid}/cmdline") || File.ReadAllText($"/proc/{pid}/cmdline").Length == 0, "the kill");
     }
 
@@ -401,7 +541,7 @@ public sealed class ShellTests : IDisposable
     {
         Start();
         Until(() => Shell.Foreground is not null);
-        Harness.Press("ctrl+space q");
+        Harness.Press("ctrl+space ctrl+q");
         Assert.IsType<ConfirmDialog>(Harness.App.Overlays.Top);
         Harness.Press("enter");
         Assert.False(Harness.App.Overlays.Any);
@@ -425,8 +565,8 @@ public sealed class ShellTests : IDisposable
     {
         Start();
         Until(() => Shell.Foreground is not null);
-        Harness.Press("ctrl+space ?");
-        UntilShows("Switch to a running app");
+        Harness.Press("ctrl+space f1");
+        UntilShows("Start or switch to the selected app");
     }
 
     // ---- Notifications ----
@@ -496,7 +636,7 @@ public sealed class ShellTests : IDisposable
         Assert.Contains(expected, Shell.Notifications[0].Text, StringComparison.Ordinal);
         Assert.Equal(0, Harness.App.Toasts.Count);
 
-        Harness.Press("ctrl+space n");
+        Harness.Press("ctrl+space ctrl+n");
         UntilShows(expected);
         Assert.Equal(0, Shell.Unread);
         Assert.Contains("Notifications", Screen, StringComparison.Ordinal);
@@ -509,7 +649,7 @@ public sealed class ShellTests : IDisposable
         Start($"while [ ! -e '{go}' ]; do sleep 0.01; done; printf '\\033]9;hello\\007'; exec cat");
         Until(() => Shell.Foreground is not null);
         Assert.True(Shell.DoNotDisturb);
-        Harness.Press("ctrl+space d");
+        Harness.Press("ctrl+space ctrl+d");
         Assert.False(Shell.DoNotDisturb);
         Assert.DoesNotContain("DND", Status, StringComparison.Ordinal);
 

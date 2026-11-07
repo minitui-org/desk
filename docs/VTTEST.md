@@ -94,7 +94,7 @@ Checked on 2026-11-06, with `tuidesk` in tmux 3.4 under a private server, readin
 
 **Limits:** as in Phase 1c, tmux is the outer terminal and keys are scripted, so colors and the feel of it on a real GUI terminal are unchecked. Kitty's forms, including Shift+Enter, were sent as raw bytes. Text reaching a real system clipboard is unchecked; the end-to-end test sees the OSC 52 that `tuidesk` sends.
 
-**`tools/key_probe.py --desk`:** 0 unexpected differences. Every key in [PRIOR-ART.md](PRIOR-ART.md) arrives identical to bare tmux (Ctrl+Space by pressing it twice, as it's the prefix), and so does Ctrl+J, with MiniTui 2.1.1. Of the other keys, only Home and End differ, for the reason above.
+**`tools/key_probe.py --desk`:** 0 unexpected differences. Every key in [PRIOR-ART.md](PRIOR-ART.md) arrives identical to bare tmux (Ctrl+Space by way of `Ctrl+S` in the launcher, as it's the prefix), and so does Ctrl+J, with MiniTui 2.1.1. Of the other keys, only Home and End differ, for the reason above.
 
 **Real programs:**
 
@@ -108,5 +108,7 @@ Checked on 2026-11-06, with `tuidesk` in tmux 3.4 under a private server, readin
 Closing the tmux session ended `tuidesk` and everything it hosted.
 
 **Native AOT:** `tuidesk` publishes with no warnings. The binary started a shell, and showed help and a broken `config.json`'s notification.
+
+**The launcher opening straight away:** rechecked on 2026-11-06 the same way, with `tools/key_probe.py --desk` at 0 unexpected differences, sending Ctrl+Space by way of `Ctrl+S`. The footer, the swap to the switcher, help and quitting were read from captured text at 100 × 30 and 50 × 12, and `Ctrl+Space` and `Ctrl+Q` were sent through the published AOT binary. nvim, htop, k9s and Claude Code weren't rerun, as nothing between an app and the terminal changed.
 
 **Not done:** the working session in §12.9, which needs a person.

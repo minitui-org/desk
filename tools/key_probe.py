@@ -3,7 +3,7 @@
 
     dotnet build src/MiniTui.Desk.sln -c Release
     tools/key_probe.py          # hosted in the MiniTui.Vt example
-    tools/key_probe.py --desk   # hosted in tuidesk, where Ctrl+Space is pressed twice
+    tools/key_probe.py --desk   # hosted in tuidesk, where Ctrl+Space is sent with Ctrl+S
 
 The acceptance check for spec 12.9: the keys in docs/PRIOR-ART.md arrive unchanged. Uses a private tmux server, and
 exits non-zero if any key differs in a way that isn't listed in EXPECTED_DIFFERENCES.
@@ -123,13 +123,14 @@ def run(command, mode, directory, name):
     def send(args, raw=None):
         before = len(read_lines(log))
         if raw is not None:
-            for _ in range(2 if hosted and DESK and raw == "\x1b[32;5u" else 1):
-                tmux("send-keys", "-t", name, "-H", *[f"{b:02x}" for b in raw.encode()])
+            tmux("send-keys", "-t", name, "-H", *[f"{b:02x}" for b in raw.encode()])
+            if hosted and DESK and raw == "\x1b[32;5u":
+                tmux("send-keys", "-t", name, "C-s")
         else:
             tmux("send-keys", "-t", name, *args)
-            # In tuidesk it's the prefix, and pressing it twice sends it on.
+            # In tuidesk it's the prefix, and Ctrl+S in the launcher sends it on.
             if hosted and DESK and args == ["C-Space"]:
-                tmux("send-keys", "-t", name, *args)
+                tmux("send-keys", "-t", name, "C-s")
         # Long enough for the host's Esc timeout, and for a slow machine.
         time.sleep(0.15)
         lines = read_lines(log)[before:]

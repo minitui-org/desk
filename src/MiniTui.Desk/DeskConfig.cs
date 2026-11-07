@@ -38,6 +38,15 @@ internal sealed record DeskConfig
     private const string DefaultPrefix = "ctrl+space";
 
     public KeyBinding Prefix { get; init; } = KeyBinding.Parse(DefaultPrefix);
+
+    /// <summary>The prefix as a key press, to send to an app.</summary>
+    public ConsoleKeyInfo PrefixKey => new(
+        Prefix.Char ?? '\0',
+        Prefix.Key,
+        (Prefix.Modifiers & ConsoleModifiers.Shift) != 0,
+        (Prefix.Modifiers & ConsoleModifiers.Alt) != 0,
+        (Prefix.Modifiers & ConsoleModifiers.Control) != 0);
+
     public bool DoNotDisturb { get; init; } = true;
     public IReadOnlyList<AppEntry> Apps { get; init; } = [];
     public IReadOnlyList<string> Errors { get; init; } = [];
