@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/MiniTui.Desk/MiniTui.Desk.csproj" />
+    <ProjectReference Include="../MiniTui.Desk.TestApp/MiniTui.Desk.TestApp.csproj" />
   </ItemGroup>
 
 

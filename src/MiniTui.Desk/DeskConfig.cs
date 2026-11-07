@@ -54,6 +54,9 @@ internal sealed record DeskConfig
     /// <summary>The program for a new shell.</summary>
     public string ShellCommand { get; init; } = Environment.GetEnvironmentVariable("SHELL") is { Length: > 0 } shell ? shell : FallbackShell;
 
+    /// <summary>Where the socket for native apps goes, or null for <see cref="DeskServer.DefaultDirectory"/>.</summary>
+    public string? RuntimeDirectory { get; init; }
+
     /// <summary>How long an app gets to end after a hangup before it's killed.</summary>
     public TimeSpan CloseTimeout { get; init; } = TimeSpan.FromSeconds(3);
 
@@ -97,13 +100,19 @@ internal sealed record DeskConfig
         return config with { Errors = errors };
     }
 
-    /// <summary>How to start <paramref name="entry"/>, at this size.</summary>
-    public static VtStartInfo StartInfo(AppEntry entry, int width, int height)
+    /// <summary>
+    /// How to start <paramref name="entry"/>, at this size, as <paramref name="appId"/> on the protocol at
+    /// <paramref name="socket"/>. Without a socket, the variables are removed, so a Desk inside Desk doesn't pass on the outer one's.
+    /// </summary>
+    public static VtStartInfo StartInfo(AppEntry entry, int width, int height, string? socket = null, string? appId = null)
     {
+        var native = socket is not null && appId is not null;
         var environment = new Dictionary<string, string?>
         {
             ["TERM_PROGRAM"] = "tuidesk",
             ["TERM_PROGRAM_VERSION"] = null, // it would describe the terminal outside
+            ["MINITUI_DESK_SOCKET"] = native ? socket : null,
+            ["MINITUI_DESK_APP_ID"] = native ? appId : null,
         };
         foreach (var (name, value) in entry.Env ?? []) environment[name] = value;
 

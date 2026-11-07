@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `MiniTui.Desk.Protocol`: `DeskClient` and `WithDesk`, one call for a MiniTui app to join Desk. It sets a title, sends notifications and opens other apps, hears about focus, notification actions and requests to quit, and does nothing outside Desk. Spec §8 and §13.3. The shell's side comes next.
+- `tuidesk` speaks the protocol (spec §13.4). Native apps show their name and title in the status line and switcher, and their notifications follow the urgency table, with Do Not Disturb winning. A repeated id updates its entry in place. `Ctrl+N` is now a list: Enter on a notification with actions offers them, and the choice goes back to the app. A native app can open another app from `apps.json` while it's in front. `Ctrl+X` and `Ctrl+Q` ask native apps to quit first, so they can save or ask, and pressing the key again forces it. The socket is in `$XDG_RUNTIME_DIR/tuidesk`, readable only by you.
+- `MiniTui.Desk.Protocol`: `DeskClient` and `WithDesk`, one call for a MiniTui app to join Desk. It sets a title, sends notifications and opens other apps, hears about focus, notification actions and requests to quit, and does nothing outside Desk. Spec §8 and §13.3.
 - The spec for Phase 2, native apps (`docs/SPEC.md` §13).
 - `tuidesk`, the shell (spec §12.3 to §12.7): one app on the screen and a status line, with `Ctrl+Space` as the only key taken from the app. A switcher and a launcher, apps that keep their screen and say how they ended when they fail, quiet notifications with Do Not Disturb on by default, and optional config files.
 - `MiniTui.Vt`: `VtTerminal.Start(info, setup)` runs `setup` before any output is read, so a program that rings the bell or asks about its colors as it starts can't get ahead of the handlers.

@@ -12,6 +12,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <IsAotCompatible>true</IsAotCompatible>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <IsPackable>false</IsPackable>
@@ -19,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../MiniTui.Vt/MiniTui.Vt.csproj" />
+    <ProjectReference Include="../MiniTui.Desk.Protocol/MiniTui.Desk.Protocol.csproj" />
     <InternalsVisibleTo Include="MiniTui.Desk.Tests" />
   </ItemGroup>
 

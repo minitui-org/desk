@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A real native app for the shell's tests (spec §13.6, 2b), driven by typed commands. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>desk-test-app</AssemblyName>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/MiniTui.Desk.Protocol/MiniTui.Desk.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>
