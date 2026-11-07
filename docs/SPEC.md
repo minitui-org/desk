@@ -25,6 +25,7 @@ MiniTui Desk is a **distraction-free, terminal-based desktop environment for Lin
 | Protocol package | `MiniTui.Desk.Protocol` |
 | Terminal-emulator component | `MiniTui.Vt` |
 | Binary, config dir, systemd unit | `tuidesk`, `~/.config/tuidesk/`, `tuidesk.service` |
+| First-party apps (Phase 2) | `tui` and the app: `tuinotes`, with its data in `~/.local/share/tuinotes/` |
 | Repo | `minitui-org/desk` |
 | Docs | `minitui.org/desk` (a section; the framework leads the site) |
 
@@ -560,7 +561,7 @@ OSC notifications stay `normal`. A repeated `id` replaces the entry, keeps its p
 ### 13.5 First-party apps
 Each is one executable, uses `WithDesk`, and has a `README` section listing the gaps it hit, with links to their MiniTui issues. They keep their data in plain files under `$XDG_DATA_HOME/<app>`.
 
-- **Notes:** Markdown files, with a list and an editor. Sets its title to the open note.
+- **Notes:** Markdown files, with a list and an editor. Sets its title to the open note. Detail in §13.8.
 - **Tasks:** a list with due dates, stored as plain text. Notifies when something falls due, using actions for done and snooze.
 - **Reader:** reads local Markdown and text files, with `launch` opening Notes from a passage.
 
@@ -580,12 +581,38 @@ One branch and PR each.
 - [x] Titles, the notification policy table, replacement by `id`, actions, `launch`, both close paths and `quitDeclined` are tested with `TestBackend` and with a real client in a real child.
 - [x] Several connections on one id follow §8.1, including a MiniTui app started from a hosted bash.
 
-**2c, 2d, 2e — One app each.** §13.5.
-- [ ] The app works with the keyboard alone, and with no existing data.
-- [ ] Its screens are identical in Desk and outside it, tested by running it both ways. Only the status line and notifications differ.
-- [ ] Its gaps are filed against MiniTui.
+**2c, 2d, 2e — One app each.** §13.5. Notes (2c) is done; Tasks and Reader are to come.
+- [ ] The app works with the keyboard alone, and with no existing data. Notes: done.
+- [ ] Its screens are identical in Desk and outside it, tested by running it both ways. Only the status line and notifications differ. Notes: done.
+- [ ] Its gaps are filed against MiniTui. Notes: minitui#74 to #79.
 
 **Phase exit:** the apps show their name and status in the shell and route notifications through it, and Ben uses them in a working session.
 
 ### 13.7 Out of scope
 Clipboard over the protocol, rendering over the socket, IPC between apps (§8.4), a manifest format and `dotnet new` template (Phase 4), and publishing packages.
+
+### 13.8 Notes (2c)
+`apps/Notes/`, the `tuinotes` executable. Plain Markdown files, written as typed, in `$XDG_DATA_HOME/tuinotes/` (normally `~/.local/share/tuinotes/`).
+
+- **Files:** one note is one `<name>.md` file directly in the folder. Other files, hidden ones and folders are left alone and not listed. The folder is created when the first note is. Notes are written as UTF-8, by writing a temporary file and renaming it over the note, so a crash leaves the old version or the new one, never half of one.
+- **Screen:** the list of notes on the left, most recently changed first with the time it changed, and the selected note in an editor on the right. A status bar shows the keys. Under 50 columns only the side being used shows. With no notes, the editor says how to make one.
+- **Names:** a name can't be empty, start with `.`, contain `/`, or match another note's name ignoring case.
+
+| Key | Where | Does |
+|---|---|---|
+| `↑` `↓` `PgUp` `PgDn` `Home` `End` | List | Select a note, which shows in the editor |
+| Typing, `Backspace` | List | Filter by name. `Esc` clears the filter |
+| `Enter`, `Tab` | List | Edit the selected note |
+| `Esc`, `Tab` | Editor | Back to the list |
+| `Ctrl+N` | Both | New note, asking for its name, which starts as the filter |
+| `F2` | Both | Rename the selected note |
+| `Delete` | List | Delete the selected note, after confirming |
+| `Ctrl+Q` | Both | Quit |
+
+The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and the clipboard. The Markdown is edited as text, with no preview.
+
+**Decision: autosave.** There is no save key and no "unsaved changes" question. A note is saved 1 second after the last change, and before anything else happens to it: selecting another note, renaming it, losing the focus in Desk, and quitting by `Ctrl+Q`, `quitRequest`, hangup or `SIGTERM`. If a save fails, Notes shows why and keeps the text. A quit that can't save stays open, and inside Desk it sends `quitDeclined`, so the text isn't lost.
+- **Changed elsewhere:** Notes reads the folder again when it gets the focus back and when a note is selected, and a note with no unsaved changes is reloaded if its file changed. If the file changed on disk while Notes has unsaved changes too, Notes doesn't overwrite it: it saves its text as a new note, `<name> (conflict)`, says so, and carries on in that one.
+- **Title:** the selected note's name, or nothing when there are no notes.
+- **Theme:** MiniTui's light and dark themes, picked from the terminal's background as MiniTui does. Inside Desk the hosted terminal reports the real background (§11.4), so the screen is the same either way.
+
