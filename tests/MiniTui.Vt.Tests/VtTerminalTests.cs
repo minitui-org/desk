@@ -448,4 +448,17 @@ public class VtTerminalTests
         WaitFor(() => Draw(terminal, 20, 5)[0].TrimEnd() == "new", "the frame to show");
         terminal.Kill();
     }
+
+    [Fact]
+    public async Task Setup_runs_before_any_output_is_read()
+    {
+        var rang = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var terminal = VtTerminal.Start(new VtStartInfo("/bin/sh") { Args = ["-c", "printf '\\007'"] }, t =>
+        {
+            // Long enough for the program to have rung already
+            Thread.Sleep(200);
+            t.Bell += rang.SetResult;
+        });
+        await rang.Task.WaitAsync(TimeSpan.FromSeconds(20));
+    }
 }

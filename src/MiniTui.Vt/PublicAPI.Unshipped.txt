@@ -134,6 +134,7 @@ static MiniTui.Vt.VtModes.operator ==(MiniTui.Vt.VtModes left, MiniTui.Vt.VtMode
 static MiniTui.Vt.VtStartInfo.operator !=(MiniTui.Vt.VtStartInfo? left, MiniTui.Vt.VtStartInfo? right) -> bool
 static MiniTui.Vt.VtStartInfo.operator ==(MiniTui.Vt.VtStartInfo? left, MiniTui.Vt.VtStartInfo? right) -> bool
 static MiniTui.Vt.VtTerminal.Start(MiniTui.Vt.VtStartInfo! info) -> MiniTui.Vt.VtTerminal!
+static MiniTui.Vt.VtTerminal.Start(MiniTui.Vt.VtStartInfo! info, System.Action<MiniTui.Vt.VtTerminal!>? setup) -> MiniTui.Vt.VtTerminal!
 ~override MiniTui.Vt.PtyExit.Equals(object obj) -> bool
 ~override MiniTui.Vt.VtModes.Equals(object obj) -> bool
 ~override MiniTui.Vt.VtModes.ToString() -> string
