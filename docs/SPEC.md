@@ -175,6 +175,7 @@ App → shell:
 | `title` | `text` | Short status in the status line and switcher. Control characters are stripped |
 | `notify` | `id, title, body, urgency, actions?` | Queued by the shell's policy. `urgency` is `low`, `normal` or `high`. `actions` is a list of `{id, label}`. A repeated `id` replaces the earlier one from that app |
 | `launch` | `appId, args` | Open another app from `apps.json`. An unknown id is ignored |
+| `quitDeclined` | | The user chose to stay after a `quitRequest` |
 | `bye` | | The app is closing the connection on purpose |
 
 Shell → app:
@@ -184,7 +185,7 @@ Shell → app:
 | `welcome` | `protocol, theme` | The version to use: the lower of the two. `theme` is `light` or `dark` |
 | `focus` | `focused` | Sent when it changes; apps may pause while in the background |
 | `notificationAction` | `id, action` | The user chose an action from `notify.actions` |
-| `quitRequest` | | Polite close. There's no reply: the app exits, or stays and asks the user. The switcher can always kill it |
+| `quitRequest` | | Polite close. The app exits, or asks the user and sends `quitDeclined` if they choose to stay. The shell can always kill it |
 
 ```
 {"type":"hello","appId":"notes-1","name":"Notes","version":"0.1.0","protocol":0}
@@ -212,6 +213,7 @@ public sealed class DeskClient : IAsyncDisposable
     public void SetTitle(string text);
     public void Notify(DeskNotification notification);
     public void Launch(string appId, params string[] args);
+    public void DeclineQuit();                                              // after QuitRequested, if the user chose to stay
     public event Action<bool>? FocusChanged;
     public event Action<string, string>? NotificationAction;                // id, action
     public event Action? QuitRequested;
@@ -551,6 +553,7 @@ OSC notifications stay `normal`. A repeated `id` replaces the entry, keeps its p
 **Decision: closing a native app.** An app with an open connection can stay and ask the user (§8.3), so nothing is killed behind its back:
 - `Ctrl+X` sends `quitRequest`, and the status line says so while the app is still running: "Asked Notes to quit, Ctrl+X again to force". Pressing it again takes the hangup path of §12.5.
 - `Ctrl+Q` sends `quitRequest` to every connected app and closes the others as in §12.5. If a connected app stays open, Desk brings it to the front so the user can answer it, and the status line says "Waiting for Notes, Ctrl+Q again to force". Pressing it again takes the hangup path for whatever is left. There's no time limit, so being slow to answer can't lose work.
+- **Staying:** `quitDeclined` cancels the quit and clears the status line. The other apps are already closed by then. An app that never sends it can't hold Desk: switching to another app also cancels the wait.
 - Apps with no connection behave as they do today.
 
 ### 13.5 First-party apps
@@ -573,7 +576,7 @@ One branch and PR each.
 **2b — Shell side.** §8.1, §8.2 and §13.4.
 - [ ] The socket directory is mode `0700`, another user's `/tmp` directory is refused, and the socket goes away on exit.
 - [ ] A 64 KiB+ line closes that connection, anything before `hello` is ignored, and no client behaviour can take down the shell.
-- [ ] Titles, the notification policy table, replacement by `id`, actions, `launch` and both close paths are tested with `TestBackend` and with a real client in a real child.
+- [ ] Titles, the notification policy table, replacement by `id`, actions, `launch`, both close paths and `quitDeclined` are tested with `TestBackend` and with a real client in a real child.
 - [ ] Several connections on one id follow §8.1, including a MiniTui app started from a hosted bash.
 
 **2c, 2d, 2e — One app each.** §13.5.
