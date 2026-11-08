@@ -188,6 +188,22 @@ public sealed class EndToEndTests : IDisposable
             () => $"the same text in different colors:\n{Text(dark)}\n---\n{Text(light)}");
     }
 
+    [Fact]
+    public void A_click_selects_a_note_on_its_own_and_in_Desk()
+    {
+        Seed("Shopping", "milk", hoursAgo: 0);
+        Seed("Work plan", "Ship Notes.", hoursAgo: 1);
+        foreach (var terminal in new[] { Alone(), InDesk() })
+        {
+            UntilShows(terminal, "milk");
+            var row = Array.FindIndex(Rows(terminal), r => r.StartsWith("│ Wor", StringComparison.Ordinal)); // the name is cut to fit
+            // The terminal reports the mouse only if the app asked for it
+            Until(() => terminal.HandleMouse(new MouseEvent(MouseAction.Press, MouseButton.Left, 3, row)), () => Text(terminal));
+            terminal.HandleMouse(new MouseEvent(MouseAction.Release, MouseButton.Left, 3, row));
+            UntilShows(terminal, "Ship Notes.");
+        }
+    }
+
     // ---- Inside Desk ----
 
     [Fact]

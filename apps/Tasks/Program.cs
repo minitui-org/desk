@@ -5,6 +5,7 @@ using MiniTui.Desk.Tasks;
 var app = App.Create()
     .WithTheme(Theme.Dark, Theme.Light)
     .WithChrome(statusBar: true, breadcrumb: false)
+    .WithMouse()
     .WithDesk("Tasks", out var desk);
 
 // Inside Desk, reminders go to the shell; outside it they're toasts

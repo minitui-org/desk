@@ -25,9 +25,9 @@ public sealed class ScreenTests : IDisposable
     private string Screen => string.Join('\n', Harness.Lines);
     private string Status => Harness.Lines[^1];
 
-    private void Start(int width = 100, int height = 20)
+    private void Start(int width = 100, int height = 20, (string, string)? append = null)
     {
-        _screen = new NotesScreen(_store, _time, _titles.Add);
+        _screen = new NotesScreen(_store, _time, _titles.Add, append);
         _harness = new ComponentHarness(_screen, width, height, _time);
         Harness.RunUntilIdle();
     }
@@ -500,6 +500,44 @@ public sealed class ScreenTests : IDisposable
         Assert.False(Notes.IsEditing);
         Press("tab");
         Assert.False(Notes.IsEditing);
+    }
+
+    // ---- --append (from Reader) ----
+
+    private const string Passage = "> Tomatoes need sun\n\n— ~/docs/garden.md\n\n";
+
+    [Fact]
+    public void Append_makes_the_note_saves_it_and_edits_it_at_the_end()
+    {
+        Seed("Other", "x");
+        Start(append: ("garden", Passage));
+        Assert.Equal(Passage, _store.Read("garden"));
+        Assert.Equal("garden", Notes.Current);
+        Assert.True(Notes.IsEditing);
+        Assert.Equal(new TextPosition(4, 0), Notes.Text.Cursor);
+        Type("Plant in May");
+        Assert.Equal(Passage + "Plant in May", Notes.Text.Text);
+    }
+
+    [Fact]
+    public void Append_adds_to_the_end_of_a_note_whose_name_matches_ignoring_case_after_a_blank_line()
+    {
+        Seed("Garden", "Ideas\n\n\n");
+        Start(append: ("garden", Passage));
+        Assert.Equal("Ideas\n\n" + Passage, _store.Read("Garden"));
+        Assert.Single(_store.List());
+        Assert.Equal("Garden", Notes.Current);
+    }
+
+    [Fact]
+    public void Append_to_a_name_that_can_not_be_a_note_says_so_and_opens_as_usual()
+    {
+        Seed("Plan", "x");
+        Start(append: (".hidden", Passage));
+        Assert.Contains("Can't add to “.hidden”: A name can't start with a dot", Screen, StringComparison.Ordinal);
+        Assert.Equal("Plan", Notes.Current);
+        Assert.False(Notes.IsEditing);
+        Assert.Single(_store.List());
     }
 
     // ---- Rename and delete ----

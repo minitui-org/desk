@@ -37,6 +37,13 @@ Desk the reminders are notifications you can mark done or snooze. Its keys are i
 dotnet run --project apps/Tasks
 ```
 
+Reader is the third: it reads Markdown and text files where they are, formatted, and `Ctrl+N` sends the highlighted
+passage to Notes, quoted, with room to write under it. Its keys are in [`apps/Reader`](apps/Reader/README.md).
+
+```bash
+dotnet run --project apps/Reader -- ~/docs
+```
+
 To try the terminal emulator on its own, run a shell in a pane of an ordinary MiniTui app. Ctrl+Q quits.
 
 ```bash

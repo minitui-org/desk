@@ -20,10 +20,13 @@ internal sealed class NotesScreen : Screen
     private App? _app; // kept after unmounting, so a last save can still say what went wrong
     private List<NoteFile> _notes = [];
     private string? _title;
+    private (string Name, string Text)? _append;
 
-    public NotesScreen(NotesStore store, TimeProvider? time = null, Action<string>? setTitle = null)
+    /// <param name="append">A note and text for <c>--append</c> (spec §13.8): added at its end as Notes starts.</param>
+    public NotesScreen(NotesStore store, TimeProvider? time = null, Action<string>? setTitle = null, (string Name, string Text)? append = null)
     {
         _store = store;
+        _append = append;
         _time = time ?? TimeProvider.System;
         _setTitle = setTitle ?? (_ => { });
         _list = new NoteList(this);
@@ -125,7 +128,42 @@ internal sealed class NotesScreen : Screen
         App.OnQuitting(_ => Save());
         _saveTimer = _time.CreateTimer(_ => App.Post(() => Save()), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         Reload();
+        if (_append is { } append)
+        {
+            _append = null;
+            if (AppendTo(append.Name, append.Text)) return;
+        }
         SelectFirst();
+    }
+
+    /// <summary>
+    /// <c>--append</c>: add <paramref name="text"/> to the end of the note, making it if there's none, save, and edit
+    /// it at the end. False, having said why, if the name can't be a note's or the note can't be written.
+    /// </summary>
+    private bool AppendTo(string name, string text)
+    {
+        if (NotesStore.Problem(name) is { } problem)
+        {
+            Toast($"Can't add to “{name}”: {problem}", ToastLevel.Error);
+            return false;
+        }
+        name = _notes.Select(n => n.Name).FirstOrDefault(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)) ?? name;
+        try
+        {
+            var was = (_store.Read(name) ?? "").TrimEnd('\n', '\r');
+            _store.Write(name, was.Length == 0 ? text : was + "\n\n" + text);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Toast($"Can't add to “{name}”: {e.Message}", ToastLevel.Error);
+            return false;
+        }
+        Reload();
+        Select(name);
+        if (Current != name) return false;
+        Text.Cursor = new TextPosition(Text.Lines.Count - 1, Text.Lines[^1].Length);
+        Edit();
+        return true;
     }
 
     protected override void OnUnmount()
