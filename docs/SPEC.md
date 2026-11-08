@@ -563,7 +563,7 @@ Each is one executable, uses `WithDesk`, and has a `README` section listing the 
 
 - **Notes:** Markdown files, with a list and an editor. Sets its title to the open note. Detail in §13.8.
 - **Tasks:** a list with due dates, stored as plain text (todo.txt). Notifies when something falls due, using actions for done and snooze. Detail in §13.9.
-- **Reader:** reads local Markdown and text files, with `launch` opening Notes from a passage.
+- **Reader:** reads local Markdown and text files, with `launch` opening Notes from a passage. Detail in §13.10.
 
 ### 13.6 Sub-phases and acceptance
 One branch and PR each.
@@ -581,10 +581,10 @@ One branch and PR each.
 - [x] Titles, the notification policy table, replacement by `id`, actions, `launch`, both close paths and `quitDeclined` are tested with `TestBackend` and with a real client in a real child.
 - [x] Several connections on one id follow §8.1, including a MiniTui app started from a hosted bash.
 
-**2c, 2d, 2e — One app each.** §13.5. Notes (2c) is done, Tasks (2d) is §13.9, and Reader is to come.
-- [ ] The app works with the keyboard alone, and with no existing data. Notes and Tasks: done.
-- [ ] Its screens are identical in Desk and outside it, tested by running it both ways. Only the status line and notifications differ. Notes and Tasks: done.
-- [ ] Its gaps are filed against MiniTui. Notes: minitui#74 to #79, fixed in MiniTui 2.2.0, and #85 (help while typing), fixed in 2.3.0, which Notes and `tuidesk` now use in place of their workarounds. Tasks: minitui#88 (row styles), worked around with `✓` and `Overdue` in the text.
+**2c, 2d, 2e — One app each.** §13.5. Notes (2c), Tasks (2d) and Reader (2e) are done: §13.8 to §13.10.
+- [x] The app works with the keyboard alone, and with no existing data. Notes, Tasks and Reader: done.
+- [x] Its screens are identical in Desk and outside it, tested by running it both ways. Only the status line and notifications differ. Notes, Tasks and Reader: done.
+- [x] Its gaps are filed against MiniTui. Notes: minitui#74 to #79, fixed in MiniTui 2.2.0, and #85 (help while typing), fixed in 2.3.0, which Notes and `tuidesk` now use in place of their workarounds. Tasks: minitui#88 (row styles), worked around with `✓` and `Overdue` in the text. Reader: minitui#89 (no Markdown widget), worked around with its own formatter, #90 (paragraph text can only be selected with the mouse), worked around with a highlighted block, and #91 (wrapping styled text is internal), worked around with its own wrapping.
 
 **Phase exit:** the apps show their name and status in the shell and route notifications through it, and Ben uses them in a working session.
 
@@ -617,6 +617,7 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 **Decision: autosave.** There is no save key and no "unsaved changes" question. A note is saved 1 second after the last change, and before anything else happens to it: selecting another note, renaming it, losing the focus in Desk, and quitting by `Ctrl+Q`, `quitRequest`, hangup or `SIGTERM`. If a save fails, Notes shows why and keeps the text. A quit that can't save stays open, and inside Desk it sends `quitDeclined`, so the text isn't lost.
 - **Changed elsewhere:** Notes reads the folder again when it gets the focus back and when a note is selected, and a note with no unsaved changes is reloaded if its file changed. If the file changed on disk while Notes has unsaved changes too, Notes doesn't overwrite it: it saves its text as a new note, `<name> (conflict)`, says so, and carries on in that one.
 - **Title:** the selected note's name, or nothing when there are no notes.
+- **`--append <name> <text>`:** `tuinotes --append garden-plan "…"` adds the text to the end of that note, making it if there's none (names match ignoring case), with a blank line between it and what was there. It saves at once, then opens the note in the editor with the cursor at the end. A name that can't be a note's name (§13.8 Names) is refused, and Notes opens as usual and says why. Reader uses it (§13.10).
 - **Theme:** MiniTui's light and dark themes, picked from the terminal's background as MiniTui does. Inside Desk the hosted terminal reports the real background (§11.4), so the screen is the same either way.
 
 
@@ -650,3 +651,75 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 **Decision: reminders.** A task is due at its `at:` time, or at 09:00 if it has only a date. While Tasks is running, a task that falls due notifies once, titled with its text and saying `Due 15:00` or `Due today`, with two actions: **Done**, and **Snooze**, which reminds again in an hour by writing `snooze:`. When Tasks starts, tasks already past due get one notification between them, "3 tasks overdue", rather than one each; a single one gets its own, with its actions. Nothing notifies while Tasks isn't running: there's no background service in Phase 2. Inside Desk notifications go to the shell with `normal` urgency, so Do Not Disturb holds them as counts; outside it they're toasts.
 - **Title:** `2 overdue, 3 today`, leaving out a zero, or nothing when neither.
 - **Theme** as in Notes (§13.8).
+
+### 13.10 Reader (2e)
+`apps/Reader/`, the `tuireader` executable. It reads Markdown and text files where they already are, and sends passages to Notes.
+
+**Decision: browsing folders.** Reader shows the files where they are, rather than in a folder of its own, so nothing has to be copied in first.
+- **Where it starts:** `tuireader [path]`. A folder starts the list there, and a file opens straight away with the list in its folder. With no argument the list starts in the current folder, which inside Desk is the `apps.json` entry's `cwd`. A path that doesn't exist starts in the current folder and says so.
+- **The list:** the folder's subfolders, then its `.md`, `.markdown` and `.txt` files, each group by name ignoring case, with `..` first unless the folder is `/`. Hidden files and folders aren't listed. Links are followed. The list's title is the folder, with the home folder as `~`. A folder that can't be read says why in the list.
+- **Reading a file:** as UTF-8, with a byte order mark skipped and invalid bytes shown as `�`. A file over 10 MiB, or with a NUL byte in its first 8 KiB, isn't shown: the page says why. Tabs become spaces to the next multiple of 4. Line ends can be `\n` or `\r\n`.
+- **Changed elsewhere:** the open file is read again when Reader gets the focus back in Desk and when it's selected again, keeping the highlighted block by its number.
+
+**Decision: formatted Markdown, drawn by Reader.** MiniTui has no Markdown widget (a gap, filed against MiniTui). Reader formats a CommonMark subset itself, in its own files, so the code could move into MiniTui later:
+
+| Markdown | Shown as |
+|---|---|
+| `#` to `######` headings, and `===` and `---` underlines | The text in the heading style. Level 1 is underlined with `═`, level 2 with `─`. Levels 3 to 6 are bold. A blank row comes before and after each |
+| Paragraphs | Wrapped to the page. Lines that follow on are joined; two trailing spaces or a trailing `\` break the line |
+| `*a*` `_a_`, `**a**` `__a__`, `~~a~~` | Italic, bold, struck through, without the marks |
+| `` `code` `` | In the code style, without the backticks |
+| `[text](url)`, `<url>` | The text in the link style. The URL isn't shown |
+| `![alt](url)` | `[image: alt]` in the muted style |
+| `-` `*` `+` lists, `1.` `1)` lists | `•` or the number, with wrapped lines indented under the text. Nested lists indent by 2 more |
+| `- [ ]`, `- [x]` | `☐` and `☑` in place of the bullet |
+| `>` quotes | A `│` bar in the muted style before each row, nested for `> >` |
+| Fenced (```` ``` ````, `~~~`) and indented code | As written in the code style, indented by 2, wrapped at the page's edge rather than at words |
+| `---`, `***`, `___` on their own | A `─` rule across the page |
+| Tables | As written, line by line, each wrapped at words |
+| HTML, link definitions, anything else | As written, wrapped like a paragraph |
+
+- **The page** is wrapped to the pane's width, at most 80 columns, leaving 2 columns on the left for the highlight bar. A `.txt` file is shown as written, wrapped, with blank lines between its paragraphs.
+- A front matter block (`---` on the first line, up to the next `---`) isn't shown.
+
+**Decision: a highlighted block is the passage.** MiniTui paragraphs can only be selected with the mouse (a gap, filed against MiniTui), and Reader has to work with the keyboard alone. So one block is always highlighted with a `▌` bar in the accent color beside its rows: a heading, a paragraph, a list item, a quote paragraph, a code block, a rule or a table. `↑` and `↓` move the bar a block at a time, and the page scrolls to keep it in view. `Shift+↑` and `Shift+↓` stretch it over the blocks above or below. When the wheel or the scrollbar scrolls the bar out of view, it moves to the nearest block in view. A mouse drag still selects exact text, as in any MiniTui paragraph, and while there's a selection it's the passage.
+
+**Decision: one note per document.** `Ctrl+N` sends the passage to a note named after the file without its extension, such as `garden-plan` for `garden-plan.md`, made if it doesn't exist and added to the end if it does. A leading `.` is dropped from the name, and an empty name becomes `Reader`. The passage goes in as a Markdown quote of the source as written (a mouse selection: as shown), then a line with where it's from, `— ~/docs/garden-plan.md`, and a blank line where Notes puts the cursor to write:
+
+```
+> Tomatoes need six hours of sun
+> and deep watering twice a week.
+
+— ~/docs/garden-plan.md
+
+```
+
+- **Inside Desk** Reader sends `launch` for the `notes` entry with the arguments `--append <name> <text>`, and Desk brings that Notes to the front (§13.4). Desk ignores an id that isn't in `apps.json`, which Reader can't see, so Reader says "Sent to Notes" rather than that Notes opened, and its README says the entry's id must be `notes`.
+- **Outside Desk** Reader suspends itself with MiniTui's `App.Suspend` and runs `tuinotes --append <name> <text>` in the same terminal: the one next to `tuireader` if it's there, otherwise from `PATH`. Reader comes back when Notes quits. If there's no `tuinotes`, Reader says so.
+- **Size:** a passage over 16 KiB isn't sent, and Reader says so, which keeps `launch` well under the protocol's 64 KiB line (§8.2).
+- `Ctrl+C` copies the passage, as shown, to the clipboard.
+
+**Screen:** the list on the left and the page on the right, as in Notes, with a status bar showing the keys. Under 50 columns only the side being used shows. With no file open, the page says how to open one, or that the folder has nothing to read; an empty file says so.
+
+| Key | Where | Does |
+|---|---|---|
+| `↑` `↓` `PgUp` `PgDn` `Home` `End` | List | Select a file or folder, and show a selected file |
+| Typing, `Backspace` | List | Filter by name. `Esc` clears the filter |
+| `Enter`, `→` | List | Go into a folder, or read a file |
+| `←`, `Backspace` with nothing typed | List | Up to the folder above |
+| `Tab` | Both | Swap between the list and the page |
+| Click, double-click | List | Select; go in or read |
+| `↑` `↓` | Page | Move the highlight a block |
+| `Shift+↑` `Shift+↓` | Page | Stretch the highlight over the block above or below |
+| `PgUp` `PgDn` `Home` `End` | Page | Scroll a page, or to the top or bottom, and move the highlight with it |
+| Click, drag, wheel | Page | Highlight a block; select text; scroll |
+| `Ctrl+N` | Page | Send the passage to Notes |
+| `Ctrl+C` | Page | Copy the passage |
+| `Esc` | Page | Clear a selection, or back to the list |
+| `F1` | Both | Show the keys |
+| `Ctrl+Q` | Both | Quit |
+
+- **Places:** Reader remembers the highlighted block of the last 200 files read, in `$XDG_DATA_HOME/tuireader/places.txt`, one file per line as `<block>\t<path>`, most recent first, and opens each file where you left it. The file is written when you leave a file or quit, as in Notes by renaming a temporary file over it. If it can't be read or written, Reader carries on without it.
+- **Title:** the open file's name, or the folder when none is open.
+- **Theme** as in Notes (§13.8).
+- **Out of scope here:** finding text in the page, following links, images, syntax highlighting in code blocks, and other formats (HTML, PDF, EPUB).
