@@ -457,7 +457,7 @@ public sealed class ScreenTests : IDisposable
     }
 
     [Fact]
-    public void Enter_and_tab_go_to_the_editor_and_esc_and_tab_come_back()
+    public void Enter_and_tab_go_to_the_editor_and_esc_comes_back()
     {
         Seed("Plan", "");
         Start();
@@ -469,8 +469,27 @@ public sealed class ScreenTests : IDisposable
         Assert.Contains("enter Edit", Status, StringComparison.Ordinal);
         Press("tab");
         Assert.True(Notes.IsEditing);
+    }
+
+    [Fact]
+    public void Tab_and_shift_tab_indent_and_outdent_in_the_editor_and_help_says_so()
+    {
+        Seed("Plan", "- milk\n- eggs");
+        Start();
         Press("tab");
-        Assert.False(Notes.IsEditing);
+        Press("down");
+        Press("home");
+        Press("tab");
+        Assert.True(Notes.IsEditing);
+        Assert.Equal("- milk\n    - eggs", Notes.Text.Text);
+        Press("shift+tab");
+        Assert.True(Notes.IsEditing);
+        Assert.Equal("- milk\n- eggs", Notes.Text.Text);
+        Assert.DoesNotContain("tab Indent", Status, StringComparison.Ordinal);
+
+        Press("f1");
+        Assert.Contains("Indent", Screen, StringComparison.Ordinal);
+        Assert.Contains("Outdent", Screen, StringComparison.Ordinal);
     }
 
     [Fact]

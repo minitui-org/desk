@@ -191,7 +191,7 @@ internal sealed class NotesScreen : Screen
         var line = name == Current ? Text.Cursor.Line : 0;
         Current = name;
         Saved = text;
-        Text = new TextAreaState(text) { AutoIndent = true };
+        Text = new TextAreaState(text) { TabIndents = true, AutoIndent = true };
         Text.Changed += (_, _) => Edited();
         if (line > 0) Text.Cursor = new TextPosition(Math.Min(line, Text.Lines.Count - 1), 0);
         SetTitle(name);
@@ -399,7 +399,10 @@ internal sealed class NotesScreen : Screen
 
         protected override void OnMount()
         {
-            Keys.Add("esc", "Notes", () => screen.Focus.Focus(screen._list));
+            Keys.Add("esc", "Notes", () => screen.Focus.Focus(screen._list))
+                // The text area takes Tab and Shift+Tab, so these only list them in help
+                .Add("tab", "Indent", () => { }, showInHints: false)
+                .Add("shift+tab", "Outdent", () => { }, showInHints: false);
         }
 
         public override bool HandleKey(ConsoleKeyInfo key) => screen.Current is not null && screen.Text.HandleKey(key);
