@@ -679,7 +679,7 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 | Tables | As written, line by line, each wrapped at words |
 | HTML, link definitions, anything else | As written, wrapped like a paragraph |
 
-- **The page** is wrapped to the pane's width, at most 80 columns, leaving 2 columns on the left for the highlight bar. A `.txt` file is shown as written, wrapped, with blank lines between its paragraphs.
+- **The page** is wrapped to the pane's full width, leaving 2 columns on the left for the highlight bar. A `.txt` file is shown as written, wrapped, with blank lines between its paragraphs.
 - A front matter block (`---` on the first line, up to the next `---`) isn't shown.
 
 **Decision: a highlighted block is the passage.** MiniTui paragraphs can only be selected with the mouse (a gap, filed against MiniTui), and Reader has to work with the keyboard alone. So one block is always highlighted with a `▌` bar in the accent color beside its rows: a heading, a paragraph, a list item, a quote paragraph, a code block, a rule or a table. `↑` and `↓` move the bar a block at a time, and the page scrolls to keep it in view. `Shift+↑` and `Shift+↓` stretch it over the blocks above or below. When the wheel or the scrollbar scrolls the bar out of view, it moves to the nearest block in view. A mouse drag still selects exact text, as in any MiniTui paragraph, and while there's a selection it's the passage.

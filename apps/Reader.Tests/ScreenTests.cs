@@ -267,10 +267,13 @@ public sealed class ScreenTests : IDisposable
     }
 
     [Fact]
-    public void A_wide_screen_keeps_the_text_to_80_columns()
+    public void A_wide_screen_wraps_the_text_to_the_whole_pane()
     {
-        Start(Make("wide.md", string.Join(' ', Enumerable.Repeat("word", 60))), width: 160);
-        Assert.All(Reader.LaidOut!.Rows, r => Assert.True(r.Width <= ReaderScreen.MaxWidth - 3, $"{r.Width}"));
+        Start(Make("wide.md", string.Join("\n\n", Enumerable.Repeat(string.Join(' ', Enumerable.Repeat("word", 60)), 20))), width: 160);
+        var widest = Reader.LaidOut!.Rows.Max(r => r.Width);
+        Assert.InRange(widest, 100, 160);
+        // The scrollbar is on the pane's right edge, not beside the text in the middle of the pane
+        Assert.NotEqual(' ', Harness.Lines[1][157]);
     }
 
     [Fact]

@@ -9,9 +9,6 @@ internal sealed class ReaderScreen : Screen
     /// <summary>A passage over this isn't sent.</summary>
     public const int MaxPassageBytes = 16 * 1024;
 
-    /// <summary>The widest the text gets, highlight bar included.</summary>
-    public const int MaxWidth = 80;
-
     private const int NarrowWidth = 50;
 
     private readonly Places _places;
@@ -525,8 +522,8 @@ internal sealed class ReaderScreen : Screen
                 return;
             }
 
-            // The bar's 2 columns, then the text, at most 80 wide, and a column for the scrollbar
-            var width = Math.Min(MaxWidth, inner.Width) - Gutter - 1;
+            // The bar's 2 columns, then the text to the pane's edge, less a column for the scrollbar
+            var width = inner.Width - Gutter - 1;
             if (width != _laidWidth || ctx.Theme != _laidTheme || Laid is null)
             {
                 Laid = MiniTui.Desk.Reader.Page.Layout(_screen.Blocks, width, PageStyles.From(ctx.Theme));

@@ -11,7 +11,7 @@ dotnet run --project apps/Reader -- ~/docs/plan.md  # a file to read, with its f
 The list shows the folder's subfolders, then its `.md`, `.markdown` and `.txt` files. With no argument it starts in
 the current folder, which inside Desk is the `apps.json` entry's `cwd`. Markdown is formatted: headings styled, marks
 like `**` and `#` hidden, lists and quotes wrapped under their bullets and bars, code as written. Text files are shown
-as written. The page is at most 80 columns wide.
+as written. The page wraps to the full width of its pane.
 
 One block is always highlighted, with a bar beside it: a heading, a paragraph, a list item, a quote or a code block.
 That's the passage, unless you've selected text with the mouse.
