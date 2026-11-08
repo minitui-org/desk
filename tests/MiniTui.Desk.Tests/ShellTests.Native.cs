@@ -166,6 +166,7 @@ public sealed partial class ShellTests
         Send(client, """{"type":"notify","id":"a","title":"t","body":"early","urgency":"high"}""");
         client.Hello(Front.Id, "Late");
         Until(() => client.Got("\"welcome\""), "the welcome");
+        Until(() => client.Got("\"focus\""), "the focus, which follows the welcome");
 
         Assert.Null(Front.Native!.Title);
         Assert.Empty(Shell.Notifications);
