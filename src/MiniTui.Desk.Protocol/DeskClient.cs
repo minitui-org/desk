@@ -61,10 +61,12 @@ public sealed class DeskClient : IAsyncDisposable
         string? socketPath,
         string? appId,
         Action<Action>? post = null,
-        Action? unhandledQuit = null)
+        Action? unhandledQuit = null,
+        TimeSpan? startupWait = null)
     {
         var client = new DeskClient(post, unhandledQuit);
-        if (!string.IsNullOrEmpty(socketPath) && !string.IsNullOrEmpty(appId)) client.Open(socketPath, appId, name ?? "", version);
+        if (!string.IsNullOrEmpty(socketPath) && !string.IsNullOrEmpty(appId))
+            client.Open(socketPath, appId, name ?? "", version, startupWait ?? StartupWait);
         return client;
     }
 
@@ -146,13 +148,13 @@ public sealed class DeskClient : IAsyncDisposable
         _welcomed.Dispose();
     }
 
-    private void Open(string path, string appId, string name, string? version)
+    private void Open(string path, string appId, string name, string? version, TimeSpan wait)
     {
         var clock = Stopwatch.StartNew();
         var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         try
         {
-            using var timeout = new CancellationTokenSource(StartupWait);
+            using var timeout = new CancellationTokenSource(wait);
             socket.ConnectAsync(new UnixDomainSocketEndPoint(path), timeout.Token).AsTask().GetAwaiter().GetResult();
         }
         catch (Exception e) when (IsConnectionFailure(e) || e is ArgumentException or PlatformNotSupportedException)
@@ -168,7 +170,7 @@ public sealed class DeskClient : IAsyncDisposable
         _writer = Task.Run(() => WriteLoop(stream));
         _ = Task.Run(() => ReadLoop(stream));
 
-        var left = StartupWait - clock.Elapsed;
+        var left = wait - clock.Elapsed;
         if (left > TimeSpan.Zero) _welcomed.Wait(left);
     }
 

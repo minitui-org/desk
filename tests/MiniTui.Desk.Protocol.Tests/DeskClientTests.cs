@@ -5,11 +5,14 @@ namespace MiniTui.Desk.Protocol.Tests;
 public sealed class DeskClientTests : IDisposable
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
+    // Long enough that a busy machine never misses the welcome; the real wait is tested with a silent shell
+    private static readonly TimeSpan StartupWait = TimeSpan.FromSeconds(10);
     private readonly FakeShell _shell = new();
 
     public void Dispose() => _shell.Dispose();
 
-    private DeskClient Connected(FakeShell? shell = null) => DeskClient.Connect("Notes", "0.1.0", (shell ?? _shell).SocketPath, "notes-1");
+    private DeskClient Connected() => DeskClient.Connect("Notes", "0.1.0", _shell.SocketPath, "notes-1", startupWait: StartupWait);
 
     private static void Until(Func<bool> condition)
     {
@@ -35,7 +38,7 @@ public sealed class DeskClientTests : IDisposable
     [Fact]
     public async Task A_version_is_optional()
     {
-        await using var client = DeskClient.Connect("Notes", null, _shell.SocketPath, "notes-1");
+        await using var client = DeskClient.Connect("Notes", null, _shell.SocketPath, "notes-1", startupWait: StartupWait);
         Assert.Equal("""{"type":"hello","appId":"notes-1","name":"Notes","protocol":0}""", _shell.Next());
     }
 
@@ -44,7 +47,7 @@ public sealed class DeskClientTests : IDisposable
     {
         using var shell = new FakeShell(welcome: null);
         var clock = Stopwatch.StartNew();
-        await using var client = Connected(shell);
+        await using var client = DeskClient.Connect("Notes", "0.1.0", shell.SocketPath, "notes-1");
         clock.Stop();
 
         Assert.InRange(clock.ElapsedMilliseconds, 400, 3000);
@@ -60,7 +63,8 @@ public sealed class DeskClientTests : IDisposable
     {
         var clock = Stopwatch.StartNew();
         await using var client = Connected();
-        Assert.True(clock.ElapsedMilliseconds < 400, $"{clock.ElapsedMilliseconds} ms");
+        Assert.True(clock.Elapsed < StartupWait / 2, $"{clock.ElapsedMilliseconds} ms");
+        Assert.Equal("dark", client.Theme);
     }
 
     // ---- Inactive ----
@@ -312,7 +316,7 @@ public sealed class DeskClientTests : IDisposable
     public async Task A_shell_that_stops_reading_never_blocks_the_app()
     {
         using var shell = new FakeShell(read: false);
-        var client = Connected(shell);
+        var client = DeskClient.Connect("Notes", "0.1.0", shell.SocketPath, "notes-1");
         Assert.True(client.IsActive);
 
         var big = new string('x', 60_000);
