@@ -604,14 +604,15 @@ Clipboard over the protocol, rendering over the socket, IPC between apps (§8.4)
 | Typing, `Backspace` | List | Filter by name, opening the best match. `Esc` clears the filter |
 | Click, double-click | List | Open a note; edit it |
 | `Enter`, `Tab` | List | Edit the selected note |
-| `Esc`, `Tab` | Editor | Back to the list |
+| `Esc` | Editor | Back to the list |
+| `Tab`, `Shift+Tab` | Editor | Indent and outdent the line, or the selected lines |
 | `Ctrl+N` | Both | New note, asking for its name, which starts as the filter |
 | `F2` | Both | Rename the selected note |
 | `Delete` | List | Delete the selected note, after confirming |
 | `F1` | Both | Show the keys (`?` is typed here) |
 | `Ctrl+Q` | Both | Quit |
 
-The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and the clipboard. The Markdown is edited as text, with no preview.
+The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and the clipboard. The Markdown is edited as text, with no preview. `Tab` indents with spaces to the next multiple of 4 (MiniTui's `TabIndents`), and Enter keeps the line's indentation. The editor holds only spaces, so a tab character in a note made elsewhere becomes spaces when it's next saved.
 
 **Decision: autosave.** There is no save key and no "unsaved changes" question. A note is saved 1 second after the last change, and before anything else happens to it: selecting another note, renaming it, losing the focus in Desk, and quitting by `Ctrl+Q`, `quitRequest`, hangup or `SIGTERM`. If a save fails, Notes shows why and keeps the text. A quit that can't save stays open, and inside Desk it sends `quitDeclined`, so the text isn't lost.
 - **Changed elsewhere:** Notes reads the folder again when it gets the focus back and when a note is selected, and a note with no unsaved changes is reloaded if its file changed. If the file changed on disk while Notes has unsaved changes too, Notes doesn't overwrite it: it saves its text as a new note, `<name> (conflict)`, says so, and carries on in that one.

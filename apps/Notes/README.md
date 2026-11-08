@@ -18,7 +18,8 @@ text in it, your text goes in a new note, `<name> (conflict)`, rather than over 
 | Typing | List | Filter by name, opening the best match. `Esc` clears the filter |
 | Click, double-click | List | Open a note; edit it |
 | `Enter`, `Tab` | List | Edit the selected note |
-| `Esc`, `Tab` | Editor | Back to the list |
+| `Esc` | Editor | Back to the list |
+| `Tab`, `Shift+Tab` | Editor | Indent and outdent the line, or the selected lines |
 | `Ctrl+N` | Both | New note, named from the filter if you typed one |
 | `F2` | Both | Rename the selected note |
 | `Delete` | List | Delete the selected note, after asking |
@@ -27,6 +28,8 @@ text in it, your text goes in a new note, `<name> (conflict)`, rather than over 
 
 The editor is MiniTui's `TextArea`: `Ctrl+Z` and `Ctrl+Y` undo and redo, `Ctrl+F` finds, `Shift` with the arrows
 selects, and `Ctrl+C`, `Ctrl+X` and `Ctrl+V` use the clipboard.
+`Tab` indents with spaces, 4 at a time, and Enter keeps the line's indentation. Tab characters in a note
+made elsewhere become spaces when Notes next saves it.
 
 To try it inside Desk, add it to `~/.config/tuidesk/apps.json`:
 
