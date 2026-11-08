@@ -562,7 +562,7 @@ OSC notifications stay `normal`. A repeated `id` replaces the entry, keeps its p
 Each is one executable, uses `WithDesk`, and has a `README` section listing the gaps it hit, with links to their MiniTui issues. They keep their data in plain files under `$XDG_DATA_HOME/<app>`.
 
 - **Notes:** Markdown files, with a list and an editor. Sets its title to the open note. Detail in §13.8.
-- **Tasks:** a list with due dates, stored as plain text. Notifies when something falls due, using actions for done and snooze.
+- **Tasks:** a list with due dates, stored as plain text (todo.txt). Notifies when something falls due, using actions for done and snooze. Detail in §13.9.
 - **Reader:** reads local Markdown and text files, with `launch` opening Notes from a passage.
 
 ### 13.6 Sub-phases and acceptance
@@ -581,10 +581,10 @@ One branch and PR each.
 - [x] Titles, the notification policy table, replacement by `id`, actions, `launch`, both close paths and `quitDeclined` are tested with `TestBackend` and with a real client in a real child.
 - [x] Several connections on one id follow §8.1, including a MiniTui app started from a hosted bash.
 
-**2c, 2d, 2e — One app each.** §13.5. Notes (2c) is done; Tasks and Reader are to come.
-- [ ] The app works with the keyboard alone, and with no existing data. Notes: done.
-- [ ] Its screens are identical in Desk and outside it, tested by running it both ways. Only the status line and notifications differ. Notes: done.
-- [ ] Its gaps are filed against MiniTui. Notes: minitui#74 to #79, fixed in MiniTui 2.2.0, and #85 (help while typing), fixed in 2.3.0, which Notes and `tuidesk` now use in place of their workarounds.
+**2c, 2d, 2e — One app each.** §13.5. Notes (2c) is done, Tasks (2d) is §13.9, and Reader is to come.
+- [ ] The app works with the keyboard alone, and with no existing data. Notes and Tasks: done.
+- [ ] Its screens are identical in Desk and outside it, tested by running it both ways. Only the status line and notifications differ. Notes and Tasks: done.
+- [ ] Its gaps are filed against MiniTui. Notes: minitui#74 to #79, fixed in MiniTui 2.2.0, and #85 (help while typing), fixed in 2.3.0, which Notes and `tuidesk` now use in place of their workarounds. Tasks: minitui#88 (row styles), worked around with `✓` and `Overdue` in the text.
 
 **Phase exit:** the apps show their name and status in the shell and route notifications through it, and Ben uses them in a working session.
 
@@ -619,3 +619,34 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 - **Title:** the selected note's name, or nothing when there are no notes.
 - **Theme:** MiniTui's light and dark themes, picked from the terminal's background as MiniTui does. Inside Desk the hosted terminal reports the real background (§11.4), so the screen is the same either way.
 
+
+### 13.9 Tasks (2d)
+`apps/Tasks/`, the `tuitasks` executable. One [todo.txt](https://github.com/todotxt/todo.txt) file, `$XDG_DATA_HOME/tuitasks/todo.txt` (normally `~/.local/share/tuitasks/todo.txt`), so other todo.txt tools and editors can read and change it too.
+
+**Decision: todo.txt.** Due dates are what Tasks is for, and todo.txt is the plain-text format where they mean the same in other tools. A Markdown checklist would read as a list in Notes, but has no standard for dates.
+
+- **Lines:** one task per line, as the format says: `x` and the date it was done, a priority `(A)` to `(Z)`, the date it was made, then the text, with `+project`, `@context` and `key:value` tags. Blank lines are skipped. A line Tasks can't make sense of is a task whose text is the whole line.
+- **Tags Tasks reads:** `due:YYYY-MM-DD`, the common extension, and `at:HH:MM`, a time on that day, which other tools ignore. `snooze:YYYY-MM-DDTHH:MM` holds a snoozed reminder. Every other tag is kept as written.
+- **Done:** marking a task done puts `x` and today's date in front, and its priority becomes a `pri:A` tag, as `todo.sh` does; undoing it puts both back. Done tasks stay in the file, and are listed after the others, most recently done first. There's no archive to `done.txt`.
+- **New tasks** are added at the end of the file with today's date as the date they were made.
+- **Writing:** every change reads the file again first and changes only its own line, then writes the whole file by renaming a temporary file over it, as Notes does. Every other line is written back byte for byte. If the line has changed or gone meanwhile, the change isn't made: Tasks says so and shows the file as it is now. The folder and file are made with the first task.
+- **Changed elsewhere:** the file is read again when Tasks gets the focus back in Desk, and once a minute if its time has changed.
+
+**Screen:** one list, filtered by typing, of tasks in this order: those with a due date by when they're due (so overdue ones first), then those without by priority and their place in the file, then the done ones. Each row is the task's text without the date tags, the priority in front, and its due time on the right: `Overdue · Nov 5`, `Today 15:00`, `Tomorrow`, `Fri`, `Nov 20`, or `2027-01-04` in another year. With no tasks, the list says how to add one.
+
+| Key | Does |
+|---|---|
+| `↑` `↓` `PgUp` `PgDn` `Home` `End` | Select a task |
+| Typing, `Backspace` | Filter. `Esc` clears the filter |
+| Click, double-click | Select a task; edit it |
+| `Ctrl+N` | New task, asking for its text, which starts as the filter |
+| `Enter` | Edit the selected task's text, tags and priority included |
+| `Ctrl+D` | Done, or not done again |
+| `Ctrl+T` | Set when it's due: `today`, `tomorrow`, a weekday, `+3d`, `+2w` or `2026-11-20`, and optionally a time, `15:00`. Empty clears it |
+| `Delete` | Delete the selected task, after confirming |
+| `F1` | Show the keys |
+| `Ctrl+Q` | Quit |
+
+**Decision: reminders.** A task is due at its `at:` time, or at 09:00 if it has only a date. While Tasks is running, a task that falls due notifies once, titled with its text and saying `Due 15:00` or `Due today`, with two actions: **Done**, and **Snooze**, which reminds again in an hour by writing `snooze:`. When Tasks starts, tasks already past due get one notification between them, "3 tasks overdue", rather than one each; a single one gets its own, with its actions. Nothing notifies while Tasks isn't running: there's no background service in Phase 2. Inside Desk notifications go to the shell with `normal` urgency, so Do Not Disturb holds them as counts; outside it they're toasts.
+- **Title:** `2 overdue, 3 today`, leaving out a zero, or nothing when neither.
+- **Theme** as in Notes (§13.8).

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tasks, the second first-party app (spec §13.9) -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>tuitasks</AssemblyName>
+    <RootNamespace>MiniTui.Desk.Tasks</RootNamespace>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Build hardening -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/MiniTui.Desk.Protocol/MiniTui.Desk.Protocol.csproj" />
+    <InternalsVisibleTo Include="MiniTui.Desk.Tasks.Tests" />
+  </ItemGroup>
+
+</Project>
