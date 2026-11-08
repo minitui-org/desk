@@ -22,6 +22,7 @@ text in it, your text goes in a new note, `<name> (conflict)`, rather than over 
 | `Ctrl+N` | Both | New note, named from the filter if you typed one |
 | `F2` | Both | Rename the selected note |
 | `Delete` | List | Delete the selected note, after asking |
+| `F1` | Both | Show the keys (`?` is typed here) |
 | `Ctrl+Q` | Both | Quit |
 
 The editor is MiniTui's `TextArea`: `Ctrl+Z` and `Ctrl+Y` undo and redo, `Ctrl+F` finds, `Shift` with the arrows
@@ -35,8 +36,8 @@ To try it inside Desk, add it to `~/.config/tuidesk/apps.json`:
 
 ## Gaps in MiniTui
 
-What Notes needed from MiniTui and didn't find (spec §13.1). Each was a MiniTui issue, and all six are fixed in
-MiniTui 2.2.0, which Notes now uses:
+What Notes needed from MiniTui and didn't find (spec §13.1). Each was a MiniTui issue, fixed in MiniTui 2.2.0
+(the first six) and 2.3.0, which Notes now uses:
 
 - **`TextAreaState` said nothing when its text changed** ([#74](https://github.com/minitui-org/minitui/issues/74)).
   Notes now saves from `TextAreaState.Changed`.
@@ -50,3 +51,5 @@ MiniTui 2.2.0, which Notes now uses:
 - **`TextArea` couldn't style parts of the text** ([#78](https://github.com/minitui-org/minitui/issues/78)).
   `TextAreaBuilder.Highlight` can now; Notes still edits Markdown as plain text (spec §13.8).
 - **A toast was one line** ([#79](https://github.com/minitui-org/minitui/issues/79)). Toasts wrap now.
+- **Help couldn't be opened while typing** ([#85](https://github.com/minitui-org/minitui/issues/85)), and in Notes
+  the focus is always in the filter or the editor, where `?` is typed. `F1` opens it now.

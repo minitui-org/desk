@@ -92,6 +92,26 @@ public sealed class ScreenTests : IDisposable
     }
 
     [Fact]
+    public void F1_shows_the_keys_from_the_list_and_from_the_editor_where_question_mark_is_typed()
+    {
+        Seed("Shopping", "milk");
+        Start();
+        Assert.Contains("f1 Help", Status, StringComparison.Ordinal);
+        Press("f1");
+        Assert.IsType<HelpOverlay>(Harness.App.Overlays.Top);
+        Assert.Contains("ctrl+n", Screen, StringComparison.Ordinal);
+        Press("esc");
+
+        Press("enter");
+        Type("?");
+        Press("f1");
+        Assert.IsType<HelpOverlay>(Harness.App.Overlays.Top);
+        Press("f1");
+        Assert.False(Harness.App.Overlays.Any);
+        Assert.Equal("milk?", Notes.Text.Text);
+    }
+
+    [Fact]
     public void A_name_with_a_problem_is_refused_in_the_prompt()
     {
         Seed("Shopping", "");
