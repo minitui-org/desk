@@ -55,6 +55,9 @@ internal sealed class NotesScreen : Screen
 
     internal IEnumerable<string> Showing => _list.Matches.Select(i => _notes[i].Name);
 
+    /// <summary>The note selected in the list, for tests: the open one, unless it's filtered out.</summary>
+    internal string? Highlighted => _list.State.Selected is { } row ? _notes[row].Name : null;
+
     // ---- What the app does with it ----
 
     /// <summary>Save, and quit if that worked. Otherwise it says why and stays, so the text isn't lost.</summary>
@@ -118,6 +121,8 @@ internal sealed class NotesScreen : Screen
     protected override void OnMount()
     {
         _app = App;
+        // Ctrl+C, a hangup and SIGTERM save first; a Ctrl+C that can't save stays, so the text isn't lost
+        App.OnQuitting(_ => Save());
         _saveTimer = _time.CreateTimer(_ => App.Post(() => Save()), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         Reload();
         SelectFirst();
@@ -187,6 +192,7 @@ internal sealed class NotesScreen : Screen
         Current = name;
         Saved = text;
         Text = new TextAreaState(text) { AutoIndent = true };
+        Text.Changed += (_, _) => Edited();
         if (line > 0) Text.Cursor = new TextPosition(Math.Min(line, Text.Lines.Count - 1), 0);
         SetTitle(name);
     }
@@ -198,16 +204,6 @@ internal sealed class NotesScreen : Screen
         Text = new TextAreaState();
         if (IsEditing) Focus.Focus(_list);
         SetTitle("");
-    }
-
-    // MiniTui quits on Ctrl+C without the key maps unless the focused component takes it (README, gaps)
-    private static bool IsCtrlC(ConsoleKeyInfo key) =>
-        key.KeyChar == '\x03' || (key.Key == ConsoleKey.C && (key.Modifiers & ConsoleModifiers.Control) != 0);
-
-    private bool QuitByCtrlC()
-    {
-        Quit();
-        return true;
     }
 
     private void Toast(string text, ToastLevel level = ToastLevel.Info) => _app?.Toasts.Push(text, level);
@@ -230,46 +226,47 @@ internal sealed class NotesScreen : Screen
         if (Current is not null) Focus.Focus(_editor);
     }
 
-    private void New()
+    // A name's problem, ignoring spaces at the ends, which are trimmed
+    private Func<string, string?> NameProblem(string? except) => text => _store.Problem(text.Trim(), except);
+
+    private async void New()
     {
-        App.Overlays.Show(new NamePrompt("New note", _list.Filter, name => _store.Problem(name, null), name =>
+        if (await App.Overlays.PromptAsync("New note", _list.Filter, NameProblem(null), "Name") is not { } typed) return;
+        var name = typed.Trim();
+        try
         {
-            try
-            {
-                _store.Create(name);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                Toast($"Can't make “{name}”: {e.Message}", ToastLevel.Error);
-                return;
-            }
-            _list.ClearFilter();
-            Reload();
-            Select(name); // saving the open one first
-            if (Current == name) Edit();
-        }));
+            _store.Create(name);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Toast($"Can't make “{name}”: {e.Message}", ToastLevel.Error);
+            return;
+        }
+        _list.ClearFilter();
+        Reload();
+        Select(name); // saving the open one first
+        if (Current == name) Edit();
     }
 
-    private void Rename()
+    private async void Rename()
     {
         if (Current is not { } from) return;
-        App.Overlays.Show(new NamePrompt("Rename note", from, name => _store.Problem(name, except: from), to =>
+        if (await App.Overlays.PromptAsync("Rename note", from, NameProblem(from), "Name") is not { } typed) return;
+        var to = typed.Trim();
+        if (to == Current || !Save()) return;
+        from = Current!; // a conflict on saving gives it another name
+        try
         {
-            if (to == from || !Save()) return;
-            from = Current!; // a conflict on saving gives it another name
-            try
-            {
-                _store.Rename(from, to);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                Toast($"Can't rename “{from}”: {e.Message}", ToastLevel.Error);
-                return;
-            }
-            Current = to;
-            SetTitle(to);
-            Reload();
-        }));
+            _store.Rename(from, to);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Toast($"Can't rename “{from}”: {e.Message}", ToastLevel.Error);
+            return;
+        }
+        Current = to;
+        SetTitle(to);
+        Reload();
     }
 
     private async void Delete()
@@ -303,137 +300,94 @@ internal sealed class NotesScreen : Screen
             : local.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 
-    /// <summary>The notes, filtered by typing (spec §13.8).</summary>
-    private sealed class NoteList(NotesScreen screen) : Component
+    /// <summary>The notes, filtered by typing (spec §13.8): MiniTui's filter list, whose selection is the open note.</summary>
+    private sealed class NoteList : Component
     {
-        private readonly TextFieldState _filter = new();
-        private List<int> _matches = [];
-        private int _offset;
-        private int _rows = 1;
+        private readonly NotesScreen _screen;
+        private bool _syncing; // the screen is moving the selection, not the user
+
+        public NoteList(NotesScreen screen)
+        {
+            _screen = screen;
+            State.SelectionChanged += (_, _) =>
+            {
+                if (!_syncing) Follow();
+            };
+            State.Activated += (_, _) => _screen.Edit();
+        }
+
+        public FilterListState State { get; } = new();
 
         public override string KeysGroup => "List";
         public override bool CapturesText => true;
 
-        public string Filter => _filter.Text;
+        public string Filter => State.Filter.Text;
 
-        public IReadOnlyList<int> Matches => _matches;
+        public IReadOnlyList<int> Matches => State.Matches;
 
         protected override void OnMount()
         {
-            Keys.Add("enter,tab", "Edit", screen.Edit)
-                .Add("delete", "Delete", screen.Delete);
+            Keys.Add("enter,tab", "Edit", _screen.Edit)
+                .Add("delete", "Delete", _screen.Delete);
         }
 
-        public void ClearFilter()
-        {
-            _filter.Clear();
-            Refilter();
-        }
+        public void ClearFilter() => Quietly(State.Filter.Clear);
 
-        public void Refilter()
-        {
-            var pattern = _filter.Text.Trim();
-            _matches = pattern.Length == 0
-                ? [.. Enumerable.Range(0, screen._notes.Count)]
-                : [.. screen._notes
-                    .Select((note, i) => (i, match: Fuzzy.Match(pattern, note.Name)))
-                    .Where(m => m.match is not null)
-                    .OrderByDescending(m => m.match!.Value.Score)
-                    .Select(m => m.i)];
-        }
-
-        private int Selected => _matches.FindIndex(i => screen._notes[i].Name == screen.Current);
+        /// <summary>The notes changed: show them, with the open one selected.</summary>
+        public void Refilter() => Quietly(() =>
+            State.SetRows(_screen._notes.Select(n => new FilterRow(n.Name, Hint: _screen.When(n.Changed), Key: n.Name))));
 
         public override bool HandleKey(ConsoleKeyInfo key)
         {
-            if (IsCtrlC(key)) return screen.QuitByCtrlC();
             var ctrlOrAlt = (key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) != 0;
             switch (key.Key)
             {
-                case ConsoleKey.UpArrow: return Move(Selected - 1);
-                case ConsoleKey.DownArrow: return Move(Selected + 1);
-                case ConsoleKey.PageUp: return Move(Selected - _rows);
-                case ConsoleKey.PageDown: return Move(Selected + _rows);
-                case ConsoleKey.Home when ctrlOrAlt || _filter.Text.Length == 0: return Move(0);
-                case ConsoleKey.End when ctrlOrAlt || _filter.Text.Length == 0: return Move(_matches.Count - 1);
-                case ConsoleKey.Escape when _filter.Text.Length > 0:
-                    ClearFilter();
-                    return true;
-                case ConsoleKey.Enter or ConsoleKey.Delete or ConsoleKey.Escape:
+                // Enter, Tab and Delete are the bindings'
+                case ConsoleKey.Enter or ConsoleKey.Delete when !ctrlOrAlt:
                 case ConsoleKey.Tab when !ctrlOrAlt:
                     return false;
+                // With nothing typed, Home and End go to the first and last note
+                case ConsoleKey.Home or ConsoleKey.End when !ctrlOrAlt && Filter.Length == 0:
+                    return State.HandleKey(new ConsoleKeyInfo(key.KeyChar, key.Key, false, false, control: true));
             }
-            if (ctrlOrAlt && key.Key is not (ConsoleKey.Backspace or ConsoleKey.LeftArrow or ConsoleKey.RightArrow)) return false;
-
-            var before = _filter.Text;
-            if (!_filter.HandleKey(key)) return false;
-            if (_filter.Text != before) Filtered();
-            return true;
+            return State.HandleKey(key);
         }
 
-        public override bool HandlePaste(string text)
+        public override bool HandlePaste(string text) => State.HandlePaste(text);
+
+        public override bool HandleMouse(MouseEvent mouse) => State.HandleMouse(mouse);
+
+        // The user moved the selection, or typed: open that note (the best match, as it's typed)
+        private void Follow()
         {
-            if (!_filter.Paste(text)) return false;
-            Filtered();
-            return true;
+            if (State.Selected is { } row) _screen.Select(_screen._notes[row].Name);
+            Quietly(() => { }); // back to the open one, if it couldn't be left
         }
 
-        // The best match shows as it's typed
-        private void Filtered()
+        private void Quietly(Action change)
         {
-            Refilter();
-            if (_matches.Count > 0 && Selected < 0) screen.Select(screen._notes[_matches[0]].Name);
-        }
-
-        private bool Move(int index)
-        {
-            if (_matches.Count == 0) return true;
-            screen.Select(screen._notes[_matches[Math.Clamp(index, 0, _matches.Count - 1)]].Name);
-            return true;
+            _syncing = true;
+            try
+            {
+                change();
+                if (_screen.Current is { } current && _screen._notes.FindIndex(n => n.Name == current) is >= 0 and var index)
+                    State.Select(index);
+            }
+            finally
+            {
+                _syncing = false;
+            }
         }
 
         public override void Render(CellBuffer buf, Rect area, RenderContext ctx)
         {
             ArgumentNullException.ThrowIfNull(ctx);
-            var focused = ctx.Focused;
-            var inner = Widget.Block().Title(" Notes ").Focused(focused).Draw(buf, area);
-            if (inner.Height <= 0 || inner.Width <= 0) return;
-
-            Widget.TextField().State(_filter).Placeholder("Type to filter").Focused(focused)
-                .Draw(buf, inner with { Height = 1 });
-            var rows = inner with { Y = inner.Y + 1, Height = inner.Height - 1 };
-            _rows = Math.Max(1, rows.Height);
-            if (rows.Height <= 0) return;
-
-            if (_matches.Count == 0)
-            {
-                var empty = screen._notes.Count == 0 ? "No notes yet" : "No match";
-                buf.SetString(rows.X + 1, rows.Y, empty, ctx.Theme.TextMuted, rows.Width - 1);
-                return;
-            }
-
-            var selected = Selected;
-            if (selected >= 0)
-            {
-                if (selected < _offset) _offset = selected;
-                if (selected >= _offset + rows.Height) _offset = selected - rows.Height + 1;
-            }
-            _offset = Math.Clamp(_offset, 0, Math.Max(0, _matches.Count - rows.Height));
-
-            for (var row = 0; row < rows.Height && _offset + row < _matches.Count; row++)
-            {
-                var index = _offset + row;
-                var note = screen._notes[_matches[index]];
-                var y = rows.Y + row;
-                var style = index == selected ? (focused ? ctx.Theme.Selection : ctx.Theme.SelectionUnfocused) : ctx.Theme.Text;
-                buf.SetString(rows.X, y, new string(' ', rows.Width), style, rows.Width);
-                var when = screen.When(note.Changed);
-                var whenWidth = UnicodeWidth.Of(when);
-                var nameWidth = Math.Max(0, rows.Width - whenWidth - 3);
-                buf.SetString(rows.X + 1, y, UnicodeWidth.Truncate(note.Name, nameWidth), style, nameWidth);
-                if (rows.Width > whenWidth + 4)
-                    buf.SetString(rows.Right - whenWidth - 1, y, when, index == selected ? style : ctx.Theme.TextMuted, whenWidth);
-            }
+            Widget.FilterList(State)
+                .Block(Widget.Block().Title(" Notes "))
+                .Placeholder("Type to filter")
+                .Empty(_screen._notes.Count == 0 ? "No notes yet" : "No match")
+                .Focused(ctx.Focused)
+                .Draw(buf, area);
         }
     }
 
@@ -448,20 +402,11 @@ internal sealed class NotesScreen : Screen
             Keys.Add("esc", "Notes", () => screen.Focus.Focus(screen._list));
         }
 
-        public override bool HandleKey(ConsoleKeyInfo key)
-        {
-            if (screen.Current is null) return IsCtrlC(key) && screen.QuitByCtrlC();
-            if (!screen.Text.HandleKey(key)) return IsCtrlC(key) && screen.QuitByCtrlC(); // it copies a selection
-            screen.Edited();
-            return true;
-        }
+        public override bool HandleKey(ConsoleKeyInfo key) => screen.Current is not null && screen.Text.HandleKey(key);
 
-        public override bool HandlePaste(string text)
-        {
-            if (screen.Current is null || !screen.Text.Paste(text)) return false;
-            screen.Edited();
-            return true;
-        }
+        public override bool HandlePaste(string text) => screen.Current is not null && screen.Text.Paste(text);
+
+        public override bool HandleMouse(MouseEvent mouse) => screen.Current is not null && screen.Text.HandleMouse(mouse);
 
         public override void Render(CellBuffer buf, Rect area, RenderContext ctx)
         {

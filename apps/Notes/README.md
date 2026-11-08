@@ -15,12 +15,14 @@ text in it, your text goes in a new note, `<name> (conflict)`, rather than over 
 | Key | Where | Does |
 |---|---|---|
 | `↑` `↓` `PgUp` `PgDn` `Home` `End` | List | Select a note, which shows in the editor |
-| Typing | List | Filter by name. `Esc` clears the filter |
+| Typing | List | Filter by name, opening the best match. `Esc` clears the filter |
+| Click, double-click | List | Open a note; edit it |
 | `Enter`, `Tab` | List | Edit the selected note |
 | `Esc`, `Tab` | Editor | Back to the list |
 | `Ctrl+N` | Both | New note, named from the filter if you typed one |
 | `F2` | Both | Rename the selected note |
 | `Delete` | List | Delete the selected note, after asking |
+| `F1` | Both | Show the keys (`?` is typed here) |
 | `Ctrl+Q` | Both | Quit |
 
 The editor is MiniTui's `TextArea`: `Ctrl+Z` and `Ctrl+Y` undo and redo, `Ctrl+F` finds, `Shift` with the arrows
@@ -34,23 +36,20 @@ To try it inside Desk, add it to `~/.config/tuidesk/apps.json`:
 
 ## Gaps in MiniTui
 
-What Notes needed from MiniTui and didn't find (spec §13.1). Each is a MiniTui issue.
+What Notes needed from MiniTui and didn't find (spec §13.1). Each was a MiniTui issue, fixed in MiniTui 2.2.0
+(the first six) and 2.3.0, which Notes now uses:
 
-- **`TextAreaState` says nothing when its text changes** ([#74](https://github.com/minitui-org/minitui/issues/74)).
-  `TextFieldState` has `Changed`, but the editor has no event or version, so Notes compares the whole text after
-  every key to know whether there's anything to save.
-- **No way to run code before the app ends** ([#75](https://github.com/minitui-org/minitui/issues/75)).
-  `Ctrl+C` calls `App.Quit` without consulting any key map unless the focused component takes the key, and a hangup
-  or `SIGTERM` restores the terminal and lets the process end. Notes takes `Ctrl+C` in each of its components and
-  registers its own signal handlers to save first.
-- **No text prompt** ([#76](https://github.com/minitui-org/minitui/issues/76)). `Overlays` can confirm,
-  show a message or a menu, but can't ask for a line of text, so Notes has its own `NamePrompt` for new and renamed
-  notes.
-- **The filterable list is internal** ([#77](https://github.com/minitui-org/minitui/issues/77)). The palette's
-  filter line and fuzzy-matched rows (`FilterList`) aren't public, so Notes builds its own from `Fuzzy` and
-  `TextFieldState`, as `tuidesk`'s launcher had to.
-- **`TextArea` can't style parts of the text** ([#78](https://github.com/minitui-org/minitui/issues/78)). It
-  draws every line in one style, so Markdown headings, emphasis and code can't be shown as such. Notes edits plain
-  text for now.
-- **A toast is one line** ([#79](https://github.com/minitui-org/minitui/issues/79)). A long message is cut off
-  with `…` rather than wrapped, so Notes keeps its messages short.
+- **`TextAreaState` said nothing when its text changed** ([#74](https://github.com/minitui-org/minitui/issues/74)).
+  Notes now saves from `TextAreaState.Changed`.
+- **No way to run code before the app ended** ([#75](https://github.com/minitui-org/minitui/issues/75)). Notes
+  took `Ctrl+C` in each component and registered its own signal handlers; now `App.OnQuitting` saves on `Ctrl+C`, a
+  hangup and `SIGTERM`.
+- **No text prompt** ([#76](https://github.com/minitui-org/minitui/issues/76)). Notes' own `NamePrompt` is gone for
+  `OverlayStack.PromptAsync`.
+- **The filterable list was internal** ([#77](https://github.com/minitui-org/minitui/issues/77)). The notes list is
+  now `FilterListState` and `Widget.FilterList`, as is `tuidesk`'s launcher.
+- **`TextArea` couldn't style parts of the text** ([#78](https://github.com/minitui-org/minitui/issues/78)).
+  `TextAreaBuilder.Highlight` can now; Notes still edits Markdown as plain text (spec §13.8).
+- **A toast was one line** ([#79](https://github.com/minitui-org/minitui/issues/79)). Toasts wrap now.
+- **Help couldn't be opened while typing** ([#85](https://github.com/minitui-org/minitui/issues/85)), and in Notes
+  the focus is always in the filter or the editor, where `?` is typed. `F1` opens it now.

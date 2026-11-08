@@ -401,7 +401,7 @@ tests/MiniTui.Vt.Tests/
 tests/MiniTui.Desk.Tests/
 examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 ```
-- Both reference the `MiniTui` 2.1.1 NuGet package, not a source checkout.
+- Both reference the `MiniTui` NuGet package (2.3.0 since Phase 2), not a source checkout.
 - The build gate is MiniTui's: `-warnaserror`, xUnit, and CI on Ubuntu. Every PR updates `CHANGELOG.md`.
 - Nothing is published in Phase 1.
 
@@ -584,7 +584,7 @@ One branch and PR each.
 **2c, 2d, 2e — One app each.** §13.5. Notes (2c) is done; Tasks and Reader are to come.
 - [ ] The app works with the keyboard alone, and with no existing data. Notes: done.
 - [ ] Its screens are identical in Desk and outside it, tested by running it both ways. Only the status line and notifications differ. Notes: done.
-- [ ] Its gaps are filed against MiniTui. Notes: minitui#74 to #79.
+- [ ] Its gaps are filed against MiniTui. Notes: minitui#74 to #79, fixed in MiniTui 2.2.0, and #85 (help while typing), fixed in 2.3.0, which Notes and `tuidesk` now use in place of their workarounds.
 
 **Phase exit:** the apps show their name and status in the shell and route notifications through it, and Ben uses them in a working session.
 
@@ -601,12 +601,14 @@ Clipboard over the protocol, rendering over the socket, IPC between apps (§8.4)
 | Key | Where | Does |
 |---|---|---|
 | `↑` `↓` `PgUp` `PgDn` `Home` `End` | List | Select a note, which shows in the editor |
-| Typing, `Backspace` | List | Filter by name. `Esc` clears the filter |
+| Typing, `Backspace` | List | Filter by name, opening the best match. `Esc` clears the filter |
+| Click, double-click | List | Open a note; edit it |
 | `Enter`, `Tab` | List | Edit the selected note |
 | `Esc`, `Tab` | Editor | Back to the list |
 | `Ctrl+N` | Both | New note, asking for its name, which starts as the filter |
 | `F2` | Both | Rename the selected note |
 | `Delete` | List | Delete the selected note, after confirming |
+| `F1` | Both | Show the keys (`?` is typed here) |
 | `Ctrl+Q` | Both | Quit |
 
 The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and the clipboard. The Markdown is edited as text, with no preview.
