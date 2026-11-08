@@ -31,6 +31,7 @@
     <InternalsVisibleTo Include="MiniTui.Desk.Protocol.Tests" />
     <InternalsVisibleTo Include="MiniTui.Desk.Tests" />
     <InternalsVisibleTo Include="MiniTui.Desk.Notes.Tests" />
+    <InternalsVisibleTo Include="MiniTui.Desk.Tasks.Tests" />
   </ItemGroup>
 
 </Project>

@@ -30,6 +30,13 @@ to `apps.json` to see the open note in Desk's status line. Its keys are in [`app
 dotnet run --project apps/Notes
 ```
 
+Tasks is the second: a to-do list with due dates in a todo.txt file, which reminds you when something falls due. In
+Desk the reminders are notifications you can mark done or snooze. Its keys are in [`apps/Tasks`](apps/Tasks/README.md).
+
+```bash
+dotnet run --project apps/Tasks
+```
+
 To try the terminal emulator on its own, run a shell in a pane of an ordinary MiniTui app. Ctrl+Q quits.
 
 ```bash

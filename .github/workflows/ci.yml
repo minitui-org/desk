@@ -32,3 +32,4 @@ jobs:
           dotnet publish tests/MiniTui.Desk.Protocol.AotHost/MiniTui.Desk.Protocol.AotHost.csproj --configuration Release --output aot-protocol
           ./aot-protocol/MiniTui.Desk.Protocol.AotHost
           dotnet publish apps/Notes/MiniTui.Desk.Notes.csproj --configuration Release -r linux-x64 -p:PublishAot=true --output aot-notes
+          dotnet publish apps/Tasks/MiniTui.Desk.Tasks.csproj --configuration Release -r linux-x64 -p:PublishAot=true --output aot-tasks
