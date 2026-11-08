@@ -40,6 +40,8 @@ row has its due time on the right: `Overdue · Nov 5`, `Today 15:00`, `Tomorrow`
 notifies once, with **Done** and **Snooze 1 hour**; snoozing writes `snooze:` to the line. When it starts, anything
 already overdue is one notification. Nothing reminds you while Tasks isn't running. Outside Desk reminders are toasts.
 
+Tasks uses the mouse, so to select the terminal's own text, hold Shift while you drag.
+
 To try it inside Desk, add it to `~/.config/tuidesk/apps.json`:
 
 ```json

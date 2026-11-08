@@ -164,6 +164,24 @@ public sealed class EndToEndTests : IDisposable
     }
 
     [Fact]
+    public void A_click_selects_a_task_on_its_own_and_in_Desk()
+    {
+        Seed("Alpha", "Beta", "Gamma");
+        foreach (var (terminal, task) in new[] { (Alone(), "Beta"), (InDesk(), "Gamma") })
+        {
+            UntilShows(terminal, task);
+            var row = Array.FindIndex(Rows(terminal), r => r.Contains(task, StringComparison.Ordinal));
+            // The terminal reports the mouse only if the app asked for it
+            Until(() => terminal.HandleMouse(new MouseEvent(MouseAction.Press, MouseButton.Left, 3, row)), () => Text(terminal));
+            terminal.HandleMouse(new MouseEvent(MouseAction.Release, MouseButton.Left, 3, row));
+            Thread.Sleep(200); // the click goes before Ctrl+D, which can't overtake it, but give the app the press first
+            Ctrl(terminal, 'd');
+            Until(() => File.ReadAllLines(TodoPath).Any(l => l.StartsWith("x ", StringComparison.Ordinal) && l.EndsWith(" " + task, StringComparison.Ordinal)),
+                () => File.ReadAllText(TodoPath));
+        }
+    }
+
+    [Fact]
     public void With_no_tasks_it_is_the_same_too()
     {
         var alone = Alone();

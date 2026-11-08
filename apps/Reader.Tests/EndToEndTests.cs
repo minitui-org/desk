@@ -185,6 +185,25 @@ public sealed class EndToEndTests : IDisposable
             () => $"the same text in different colors:\n{Text(dark)}\n---\n{Text(light)}");
     }
 
+    // ---- The mouse ----
+
+    private static int RowOf(VtTerminal terminal, string text) => Array.FindIndex(Rows(terminal), r => r.Contains(text, StringComparison.Ordinal));
+
+    [Fact]
+    public void The_mouse_works_on_its_own_and_in_Desk_clicking_a_file_and_scrolling_with_the_wheel()
+    {
+        File.WriteAllText(Path.Combine(Docs, "long.md"), string.Join("\n\n", Enumerable.Range(1, 60).Select(i => $"Paragraph {i}.")));
+        foreach (var terminal in new[] { Alone(), InDesk() })
+        {
+            // The terminal reports the mouse only if the app asked for it
+            Until(() => terminal.HandleMouse(new MouseEvent(MouseAction.Press, MouseButton.Left, 3, RowOf(terminal, "long.md"))), () => Text(terminal));
+            terminal.HandleMouse(new MouseEvent(MouseAction.Release, MouseButton.Left, 3, RowOf(terminal, "long.md")));
+            UntilShows(terminal, "Paragraph 1.");
+            for (var i = 0; i < 10; i++) terminal.HandleMouse(new MouseEvent(MouseAction.ScrollDown, MouseButton.None, 50, 10));
+            Until(() => !Text(terminal).Contains("Paragraph 1.", StringComparison.Ordinal), () => Text(terminal));
+        }
+    }
+
     // ---- To Notes ----
 
     [Fact]

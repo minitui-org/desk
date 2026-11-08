@@ -559,7 +559,7 @@ OSC notifications stay `normal`. A repeated `id` replaces the entry, keeps its p
 - Apps with no connection behave as they do today.
 
 ### 13.5 First-party apps
-Each is one executable, uses `WithDesk`, and has a `README` section listing the gaps it hit, with links to their MiniTui issues. They keep their data in plain files under `$XDG_DATA_HOME/<app>`.
+Each is one executable, uses `WithDesk`, and has a `README` section listing the gaps it hit, with links to their MiniTui issues. They keep their data in plain files under `$XDG_DATA_HOME/<app>`. They turn on the mouse (MiniTui's `WithMouse`), so clicks and the wheel reach them, in Desk or not; selecting the terminal's own text then takes Shift+drag.
 
 - **Notes:** Markdown files, with a list and an editor. Sets its title to the open note. Detail in §13.8.
 - **Tasks:** a list with due dates, stored as plain text (todo.txt). Notifies when something falls due, using actions for done and snooze. Detail in §13.9.

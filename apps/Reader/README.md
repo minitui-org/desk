@@ -49,6 +49,8 @@ and comes back when you quit it.
 
 Reader remembers where you were in the last 200 files, in `$XDG_DATA_HOME/tuireader/places.txt`.
 
+Reader uses the mouse, so to select the terminal's own text, hold Shift while you drag.
+
 To try it inside Desk, add both to `~/.config/tuidesk/apps.json`:
 
 ```json

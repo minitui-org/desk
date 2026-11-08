@@ -11,6 +11,7 @@ if (args.Length > 1 || args is ["--help" or "-h"])
 var app = App.Create()
     .WithTheme(Theme.Dark, Theme.Light)
     .WithChrome(statusBar: true, breadcrumb: false)
+    .WithMouse()
     .WithDesk("Reader", out var desk);
 
 var reader = new ReaderScreen(

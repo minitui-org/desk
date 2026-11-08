@@ -5,6 +5,7 @@ using MiniTui.Desk.Protocol;
 var app = App.Create()
     .WithTheme(Theme.Dark, Theme.Light)
     .WithChrome(statusBar: true, breadcrumb: false)
+    .WithMouse()
     .WithDesk("Notes", out var desk);
 
 // tuinotes --append <name> <text> (spec §13.8): how Reader sends a passage

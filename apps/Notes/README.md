@@ -34,6 +34,8 @@ made elsewhere become spaces when Notes next saves it.
 `tuinotes --append <name> <text>` adds the text to the end of that note, making it if there's none, saves it, and
 opens it with the cursor at the end. Reader sends passages this way.
 
+Notes uses the mouse, so to select the terminal's own text, hold Shift while you drag.
+
 To try it inside Desk, add it to `~/.config/tuidesk/apps.json`:
 
 ```json
