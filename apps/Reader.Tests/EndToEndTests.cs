@@ -210,12 +210,12 @@ public sealed class EndToEndTests : IDisposable
     public void In_Desk_ctrl_n_opens_Notes_in_front_with_the_passage_to_write_under()
     {
         var desk = InDesk();
-        Until(() => Rows(desk)[^1].StartsWith(" Reader: garden-plan.md ", StringComparison.Ordinal), () => Rows(desk)[^1]);
+        Until(() => Rows(desk)[^1].Contains(" 2 Reader: garden-plan.md ", StringComparison.Ordinal), () => Rows(desk)[^1]);
         Press(desk, ConsoleKey.DownArrow);
         Ctrl(desk, 'n');
         UntilShows(desk, "┌ Notes ");
         UntilNote("garden-plan", Sent);
-        Until(() => Rows(desk)[^1].StartsWith(" Notes: garden-plan ", StringComparison.Ordinal), () => Rows(desk)[^1]);
+        Until(() => Rows(desk)[^1].Contains(" Notes: garden-plan ", StringComparison.Ordinal), () => Rows(desk)[^1]);
         Type(desk, "Plant in May");
         UntilNote("garden-plan", Sent + "Plant in May");
     }

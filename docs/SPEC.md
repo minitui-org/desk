@@ -406,7 +406,7 @@ examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 - Nothing is published in Phase 1.
 
 ### 12.3 Screen and keys
-The top rows are the foreground app, full width. The last row is the status line: app name, the app's title (OSC 0/2), notification count, clock. Do Not Disturb shows as a muted marker.
+The top rows are the foreground app, full width. The last row is the status line: the running apps, notification count, clock. Do Not Disturb shows as a muted marker. Each app shows its number for `1`–`9` and its name, and the current one is highlighted in the selection style with its title (OSC 0/2) after its name. The title is cut to leave room for the others, and if even their names don't fit, only the current app shows. A message (closing, waiting to quit, how an app ended, asked to quit) takes the apps' place while it applies.
 
 Every key goes to the foreground app except the prefix, `Ctrl+Space` by default, which opens the launcher (§12.4). In the launcher and the switcher, typing filters, so their commands aren't plain letters:
 
@@ -424,7 +424,7 @@ Every key goes to the foreground app except the prefix, `Ctrl+Space` by default,
 
 Apart from `Tab`, each of these closes the list. A footer below a rule at the foot of the list shows the keys that fit, each key bold in the title color and what it does as text, and help lists them all. A prefix configured to one of these keys stays the prefix, and that command has no key. Pastes go to the app, wrapped by §11.3.
 
-The mouse goes to the app when it asked for mouse events, with no shell interpretation. Clicks on the status line open the switcher. The shell uses `WithMouse` and `WithHover`, since a hosted app may ask for any-motion events. Focus reporting (mode 1004) is sent to apps that enabled it when they're switched to and from.
+The mouse goes to the app when it asked for mouse events, with no shell interpretation. A click on another app's name in the status line switches to it, and a click anywhere else on it opens the switcher. The shell uses `WithMouse` and `WithHover`, since a hosted app may ask for any-motion events. Focus reporting (mode 1004) is sent to apps that enabled it when they're switched to and from.
 
 Only the foreground app's clipboard writes (§11.4) are forwarded, so a program out of sight can't replace what the user copied.
 

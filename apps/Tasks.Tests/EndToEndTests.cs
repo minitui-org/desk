@@ -199,7 +199,7 @@ public sealed class EndToEndTests : IDisposable
     {
         Seed("Call due:2025-03-04");
         var desk = InDesk();
-        Until(() => Rows(desk)[^1].StartsWith(" Tasks: 1 overdue ", StringComparison.Ordinal), () => Rows(desk)[^1]);
+        Until(() => Rows(desk)[^1].Contains(" 2 Tasks: 1 overdue ", StringComparison.Ordinal), () => Rows(desk)[^1]);
         Assert.DoesNotContain("Call: Overdue", Text(desk), StringComparison.Ordinal);   // no toast of its own
     }
 

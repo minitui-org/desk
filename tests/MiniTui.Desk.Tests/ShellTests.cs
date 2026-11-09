@@ -60,6 +60,50 @@ public sealed partial class ShellTests : IDisposable
     // ---- Screen ----
 
     [Fact]
+    public void The_status_line_numbers_the_apps_and_highlights_the_current_one_with_its_title()
+    {
+        Start("printf first; exec cat", WithApps(Entry("two", "printf '\\033]2;my title\\007'; exec cat")));
+        UntilShows("first");
+        Launch("two");
+        Until(() => Status.Contains("my title", StringComparison.Ordinal), "the title");
+        var shell = Shell.Apps[0].Name;
+        Assert.StartsWith($"  1 {shell}  2 two: my title ", Status, StringComparison.Ordinal);
+
+        var x = Status.IndexOf("2 two", StringComparison.Ordinal);
+        Assert.Equal(Theme.Current.Selection.Bg, Harness.CellAt(x, 23).Bg);
+        Assert.NotEqual(Theme.Current.Selection.Bg, Harness.CellAt(Status.IndexOf("1 ", StringComparison.Ordinal), 23).Bg);
+    }
+
+    [Fact]
+    public void When_the_names_do_not_fit_the_status_line_shows_only_the_current_app()
+    {
+        Start("printf first; exec cat", WithApps(Entry("a rather long name", "printf second; exec cat")), width: 36);
+        UntilShows("first");
+        Launch("rather");
+        UntilShows("second");
+        Assert.StartsWith("  2 a rather long name ", Status, StringComparison.Ordinal);
+        Assert.DoesNotContain("1 ", Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_click_on_another_apps_name_switches_to_it_and_anywhere_else_opens_the_switcher()
+    {
+        Start("printf first; exec cat", WithApps(Entry("two", "printf second; exec cat")));
+        UntilShows("first");
+        Launch("two");
+        UntilShows("second");
+
+        Harness.Mouse(new MouseEvent(MouseAction.Press, MouseButton.Left, Status.IndexOf("2 two", StringComparison.Ordinal), 23));
+        Assert.IsType<AppListOverlay>(Harness.App.Overlays.Top);
+        Harness.Press("esc");
+
+        Harness.Mouse(new MouseEvent(MouseAction.Press, MouseButton.Left, Status.IndexOf("1 ", StringComparison.Ordinal), 23));
+        Harness.Mouse(new MouseEvent(MouseAction.Release, MouseButton.Left, Status.IndexOf("1 ", StringComparison.Ordinal), 23));
+        Assert.False(Harness.App.Overlays.Any);
+        Assert.Same(Shell.Apps[0], Shell.Foreground);
+    }
+
+    [Fact]
     public void An_app_gets_every_row_but_the_status_line()
     {
         Start("stty size; exec cat");
