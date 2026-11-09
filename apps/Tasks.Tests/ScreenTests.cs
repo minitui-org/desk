@@ -116,10 +116,43 @@ public sealed class ScreenTests : IDisposable
             "Soon due:2026-11-07 at:15:00");
         Start();
         Assert.Equal(
-            ["Late", "Soon", "Later", "(A) Important", "(B) Some time", "Plain", "✓ Recently done", "✓ Old done"],
+            ["Late", "Soon", "Later", "(A) Important", "(B) Some time", "Plain", "Recently done", "Old done"],
             Harness.Lines.Skip(3).Take(8).Select(l => l.Trim('│', ' ').Split("  ")[0]));
         Assert.EndsWith("Overdue · Nov 5 │", Harness.Lines[3], StringComparison.Ordinal);
         Assert.EndsWith("Today 15:00 │", Row("Soon"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Done_tasks_are_muted_and_an_overdue_time_is_in_the_error_color()
+    {
+        Seed("Late due:2026-11-05", "Soon due:2026-11-07 at:15:00", "x 2026-11-06 Recently done");
+        Start();
+        var theme = Theme.Current;
+        // The cell where text starts, on the list's row that has it (below the filter line and the divider, past a toast)
+        Cell At(string text)
+        {
+            var y = Array.FindIndex(Harness.Lines, 3, l => l.Contains(text, StringComparison.Ordinal));
+            return Harness.CellAt(Harness.Lines[y].IndexOf(text, StringComparison.Ordinal), y);
+        }
+
+        Press("end");                                       // the selection off the rows looked at
+        Assert.Equal(theme.Error.Fg, At("Overdue").Fg);
+        Assert.Equal(theme.TextMuted.Fg, At("Today").Fg);
+        Assert.NotEqual(theme.TextMuted.Fg, At("Soon").Fg);
+        Press("home");
+        Assert.Equal(theme.TextMuted.Fg, At("Recently").Fg);
+    }
+
+    [Fact]
+    public void The_row_colors_follow_a_theme_that_changes_after_the_rows_are_made()
+    {
+        Seed("Late due:2026-11-05", "Plain");
+        Start();
+        Press("end");
+        Harness.App.WithTheme(Theme.Light);  // as when the terminal answers that its background is light
+        Press("end");
+        var y = Array.FindIndex(Harness.Lines, 3, l => l.Contains("Overdue", StringComparison.Ordinal));
+        Assert.Equal(Theme.Light.Error.Fg, Harness.CellAt(Harness.Lines[y].IndexOf("Overdue", StringComparison.Ordinal), y).Fg);
     }
 
     [Fact]
@@ -153,7 +186,7 @@ public sealed class ScreenTests : IDisposable
         Assert.Equal("x 2026-11-07 Call pri:A\nBuy milk\n", File_);
         Assert.Equal("(A) Call", Tasks.Selected?.Title);
         Assert.True(Tasks.Selected?.Done);
-        Assert.Contains("✓ (A) Call", Harness.Lines[4], StringComparison.Ordinal);    // now after Buy milk
+        Assert.Contains("(A) Call", Harness.Lines[4], StringComparison.Ordinal);      // now after Buy milk
 
         Press("ctrl+d");
         Assert.Equal("(A) Call\nBuy milk\n", File_);

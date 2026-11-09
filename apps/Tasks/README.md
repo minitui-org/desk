@@ -21,7 +21,8 @@ x 2026-11-07 2026-11-01 Renew passport
 ```
 
 The list shows tasks with due dates first, by when they're due, then the rest by priority, then the done ones. Each
-row has its due time on the right: `Overdue · Nov 5`, `Today 15:00`, `Tomorrow`, `Fri`.
+row has its due time on the right: `Overdue · Nov 5` in red, `Today 15:00`, `Tomorrow`, `Fri`. Done tasks are muted,
+with `Done · Nov 6` on the right.
 
 | Key | Does |
 |---|---|
@@ -52,6 +53,6 @@ To try it inside Desk, add it to `~/.config/tuidesk/apps.json`:
 
 What Tasks needed from MiniTui and didn't find (spec §13.1), each a MiniTui issue:
 
-- **Filter list rows can't be styled** ([#88](https://github.com/minitui-org/minitui/issues/88)). Done tasks can't be
-  muted, or an overdue one's time shown in red, so the difference is in the text: done tasks start with `✓`, and an
-  overdue one says `Overdue`.
+- **Filter list rows can't be styled** ([#88](https://github.com/minitui-org/minitui/issues/88)). Fixed in MiniTui
+  2.4.0: done tasks are muted and an overdue time is red, where at first done tasks started with `✓`. An overdue
+  one still says `Overdue` as well, so it doesn't rest on color alone.
