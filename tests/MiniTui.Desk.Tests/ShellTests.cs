@@ -181,6 +181,34 @@ public sealed partial class ShellTests : IDisposable
     }
 
     [Fact]
+    public void The_footers_keys_are_bold_in_the_title_color_and_what_they_do_is_text()
+    {
+        Start();
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space");
+        var theme = Theme.Current;
+        var y = Array.FindIndex(Harness.Lines, l => l.Contains("F1 help", StringComparison.Ordinal));
+        var x = Harness.Lines[y].IndexOf("F1 help", StringComparison.Ordinal);
+        Assert.Equal(theme.ModalTitle.Fg, Harness.CellAt(x, y).Fg);
+        Assert.True(Harness.CellAt(x, y).Modifiers.HasFlag(Modifiers.Bold));
+        Assert.Equal(theme.Text.Fg ?? Color.Reset, Harness.CellAt(x + 3, y).Fg);                  // "help"
+        Assert.False(Harness.CellAt(x + 3, y).Modifiers.HasFlag(Modifiers.Bold));
+        x = Harness.Lines[y].IndexOf("Ctrl+X close", StringComparison.Ordinal);
+        Assert.True(Harness.CellAt(x + 5, y).Modifiers.HasFlag(Modifiers.Bold));                 // the whole key, "Ctrl+X"
+        Assert.False(Harness.CellAt(x + 7, y).Modifiers.HasFlag(Modifiers.Bold));
+    }
+
+    [Fact]
+    public void A_rule_joined_to_the_frame_parts_the_rows_from_the_footer()
+    {
+        Start();
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space");
+        var y = Array.FindIndex(Harness.Lines, l => l.Contains("F1 help", StringComparison.Ordinal));
+        Assert.Matches(@"^\s*├─+┤\s*$", Harness.Lines[y - 1]);
+    }
+
+    [Fact]
     public void On_a_narrow_screen_the_footer_drops_keys_but_keeps_help()
     {
         Start(width: 44);
