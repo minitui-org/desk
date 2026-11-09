@@ -264,6 +264,7 @@ internal sealed class TasksScreen : Screen
     {
         private readonly TasksScreen _screen;
         private string? _follow; // the line to select once the tasks are read again
+        private Theme? _theme;   // the theme the rows' styles came from
 
         public TaskList(TasksScreen screen)
         {
@@ -292,12 +293,18 @@ internal sealed class TasksScreen : Screen
         public void Refilter()
         {
             var now = _screen.Now;
+            var theme = _theme = Theme.Current;
             // A key of the line and which of its copies it is, so identical lines are rows of their own
             var seen = new Dictionary<string, int>();
             var rows = _screen._tasks.Select(t =>
             {
                 seen[t.Line] = seen.GetValueOrDefault(t.Line) + 1;
-                return new FilterRow(t.Done ? $"✓ {t.Title}" : t.Title, Hint: Dates.Hint(t, now), Key: (t.Line, seen[t.Line]));
+                // Done tasks muted and an overdue one's time in the error color, as well as the words in the hint
+                return new FilterRow(t.Title, Hint: Dates.Hint(t, now), Key: (t.Line, seen[t.Line]))
+                {
+                    Style = t.Done ? theme.TextMuted : null,
+                    HintStyle = !t.Done && t.Due < now ? theme.Error : null,
+                };
             }).ToList();
             State.SetRows(rows);
             if (_follow is { } line && _screen._tasks.FindIndex(t => t.Line == line) is >= 0 and var index) State.Select(index);
@@ -326,6 +333,7 @@ internal sealed class TasksScreen : Screen
         public override void Render(CellBuffer buf, Rect area, RenderContext ctx)
         {
             ArgumentNullException.ThrowIfNull(ctx);
+            if (Theme.Current != _theme) Refilter(); // the background was found to be light after the rows were made
             Widget.FilterList(State)
                 .Block(Widget.Block().Title(" Tasks "))
                 .Placeholder("Type to filter")
