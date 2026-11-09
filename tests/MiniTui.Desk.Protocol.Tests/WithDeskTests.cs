@@ -44,10 +44,14 @@ public sealed class WithDeskTests : IDisposable
         var thread = -1;
         client.FocusChanged += _ => thread = Environment.CurrentManagedThreadId;
         _shell.Send("""{"type":"focus","focused":false}""");
-        Thread.Sleep(100);
-        Assert.False(client.IsFocused);
 
-        // It has arrived, and nothing has run it yet
+        // Wait for it to arrive without running the app. Nothing has run the handler yet.
+        var sent = DateTime.UtcNow;
+        while (client.IsFocused)
+        {
+            Assert.True(DateTime.UtcNow - sent < TimeSpan.FromSeconds(10), "Timed out waiting for the focus message");
+            Thread.Sleep(5);
+        }
         Assert.Equal(-1, thread);
         Until(() => thread != -1);
         Assert.Equal(Environment.CurrentManagedThreadId, thread);

@@ -20,10 +20,11 @@ public static class DeskAppExtensions
         Environment.GetEnvironmentVariable("MINITUI_DESK_SOCKET"),
         Environment.GetEnvironmentVariable("MINITUI_DESK_APP_ID"));
 
-    internal static App WithDesk(this App app, string name, out DeskClient client, string? version, string? socketPath, string? appId)
+    // startupWait is for tests: a busy machine can take longer than the default to say welcome
+    internal static App WithDesk(this App app, string name, out DeskClient client, string? version, string? socketPath, string? appId, TimeSpan? startupWait = null)
     {
         ArgumentNullException.ThrowIfNull(app);
-        var connected = DeskClient.Connect(name, version, socketPath, appId, app.Post, app.Quit);
+        var connected = DeskClient.Connect(name, version, socketPath, appId, app.Post, app.Quit, startupWait);
         app.Stopping.Register(() => _ = connected.DisposeAsync().AsTask());
         client = connected;
         return app;

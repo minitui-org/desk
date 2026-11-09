@@ -19,7 +19,14 @@ var log = args[1];
 void Log(string line) => File.AppendAllText(log, line + "\n");
 
 var exitCode = 0;
-var app = App.Create().WithDesk(args[0], out var desk);
+// Long enough for a busy machine to say welcome, so the theme logged below is the one it sent. It returns when welcome arrives.
+var app = App.Create().WithDesk(
+    args[0],
+    out var desk,
+    null,
+    Environment.GetEnvironmentVariable("MINITUI_DESK_SOCKET"),
+    Environment.GetEnvironmentVariable("MINITUI_DESK_APP_ID"),
+    TimeSpan.FromSeconds(15));
 Log($"started active={desk.IsActive} theme={desk.Theme ?? "none"}");
 desk.FocusChanged += focused => Log($"focus {focused}");
 desk.NotificationAction += (id, action) => Log($"action {id} {action}");
