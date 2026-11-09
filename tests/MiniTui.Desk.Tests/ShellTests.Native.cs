@@ -58,7 +58,7 @@ public sealed partial class ShellTests
     private string Logged(string name) => File.Exists(Log(name)) ? File.ReadAllText(Log(name)) : "";
 
     private void UntilLogged(string name, string text) =>
-        Until(() => Logged(name).Contains(text, StringComparison.Ordinal), $"\"{text}\" in {name}'s log:\n{Logged(name)}");
+        Until(() => Logged(name).Contains(text, StringComparison.Ordinal), () => $"\"{text}\" in {name}'s log:\n{Logged(name)}");
 
     private AppEntry Native(string id, string name) =>
         new() { Id = id, Name = name, Command = TestApp, Args = [name, Log(name)] };

@@ -32,14 +32,17 @@ public sealed partial class ShellTests : IDisposable
         _harness = new ComponentHarness(_shell, width, height, time);
     }
 
-    private void Until(Func<bool> condition, string? what = null)
+    private void Until(Func<bool> condition, string? what = null) => Until(condition, () => what ?? "the condition");
+
+    // what is asked for when the wait fails, so it can say how things ended up
+    private void Until(Func<bool> condition, Func<string> what)
     {
         var start = DateTime.UtcNow;
         while (true)
         {
             Harness.RunUntilIdle();
             if (condition()) return;
-            Assert.True(DateTime.UtcNow - start < Timeout, $"Timed out waiting for {what ?? "the condition"}:\n{Screen}");
+            Assert.True(DateTime.UtcNow - start < Timeout, $"Timed out waiting for {what()}:\n{Screen}");
             Thread.Sleep(5);
         }
     }
