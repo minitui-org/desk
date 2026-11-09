@@ -66,7 +66,7 @@ internal sealed class ReaderScreen : Screen
     /// <summary>Why the open file isn't shown, or null.</summary>
     internal string? Problem { get; private set; }
 
-    internal IReadOnlyList<Block> Blocks { get; private set; } = [];
+    internal IReadOnlyList<MarkdownBlock> Blocks => _page.Document.Blocks;
 
     internal bool IsReading => Focus.IsFocused(_page);
 
@@ -77,7 +77,7 @@ internal sealed class ReaderScreen : Screen
 
     internal IEnumerable<string> Showing => _list.State.Matches.Select(i => Entries[i].Name);
 
-    internal Page? LaidOut => _page.Laid;
+    internal MarkdownState Document => _page.Document;
 
     // ---- What the app does with it ----
 
@@ -215,8 +215,7 @@ internal sealed class ReaderScreen : Screen
         }
         Open = path;
         Problem = problem;
-        Blocks = lines is null ? [] : Files.IsMarkdown(path) ? Markdown.Parse(lines) : Markdown.PlainText(lines);
-        _page.Show(block);
+        _page.Show(lines is null ? "" : string.Join('\n', lines), plainText: !Files.IsMarkdown(path), block);
         SetTitle(Path.GetFileName(path));
     }
 
@@ -229,28 +228,15 @@ internal sealed class ReaderScreen : Screen
     // ---- Passages ----
 
     /// <summary>The passage: a mouse selection as shown, or the highlighted blocks as written in the file.</summary>
-    internal string? Passage(bool asWritten)
+    internal string? Passage()
     {
         if (_page.Scroll.HasSelection) return _page.Scroll.SelectedText;
-        if (_page.Highlight is not { } h || Open is null) return null;
-        if (!asWritten) return _page.Laid?.Shown(h.First, h.Last);
-        string[] lines;
-        try
-        {
-            lines = Files.Read(Open).Lines?.ToArray() ?? [];
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return _page.Laid?.Shown(h.First, h.Last);
-        }
-        var from = Blocks[h.First].FirstLine;
-        var to = Math.Min(Blocks[h.Last].LastLine, lines.Length - 1);
-        return from > to ? null : Passages.Dedent(lines[from..(to + 1)]);
+        return _page.Highlight is null ? null : _page.Document.HighlightedSource;
     }
 
     internal void SendToNotes()
     {
-        if (Open is not { } open || Passage(asWritten: true) is not { } passage) return;
+        if (Open is not { } open || Passage() is not { } passage) return;
         var text = Passages.Quote(passage, Files.Pretty(open));
         if (System.Text.Encoding.UTF8.GetByteCount(text) > MaxPassageBytes)
         {
@@ -258,11 +244,6 @@ internal sealed class ReaderScreen : Screen
             return;
         }
         if (_sendToNotes(Passages.NoteName(open), text) is { } said) Toast(said);
-    }
-
-    internal void Copy()
-    {
-        if (Passage(asWritten: false) is { } passage) Clipboard.SetText(passage);
     }
 
     private void Toast(string text, ToastLevel level = ToastLevel.Info) => _app?.Toasts.Push(text, level);
@@ -366,144 +347,67 @@ internal sealed class ReaderScreen : Screen
         }
     }
 
-    /// <summary>The open file, formatted, with the highlighted blocks marked by a bar.</summary>
+    /// <summary>The open file, formatted, with the highlighted blocks marked by a bar: MiniTui's Markdown view.</summary>
     private sealed class PageView : Component
     {
-        private const int Gutter = 2;
-
         private readonly ReaderScreen _screen;
-        private int _anchor;
-        private int _active;
-        private int _laidWidth = -1;
-        private Theme? _laidTheme;
-        private Rect _text;
-        private bool _follow; // scroll to the highlight when next drawn
 
         public PageView(ReaderScreen screen)
         {
             _screen = screen;
+            Document.Scroll.Selectable = true;
         }
 
-        public ScrollState Scroll { get; } = new() { Selectable = true };
+        public MarkdownState Document { get; } = new() { BlockCursor = true };
 
-        public Page? Laid { get; private set; }
+        public ScrollState Scroll => Document.Scroll;
 
-        public (int First, int Last)? Highlight =>
-            _screen.Blocks.Count == 0 ? null : (Math.Min(_anchor, _active), Math.Max(_anchor, _active));
+        public (int First, int Last)? Highlight => Document.Highlight;
 
         public override string KeysGroup => "Page";
 
         // A block is always highlighted, so Ctrl+C copies rather than quits
-        public override bool HasSelection => _screen.Blocks.Count > 0 || Scroll.HasSelection;
+        public override bool HasSelection => Document.HasSelection;
 
         protected override void OnMount()
         {
-            Keys.Add("up", "Previous block", () => Move(-1, stretch: false), showInHints: false)
-                .Add("down", "Next block", () => Move(1, stretch: false), showInHints: false)
-                .Add("shift+up", "Stretch up", () => Move(-1, stretch: true), showInHints: false)
-                .Add("shift+down", "Stretch down", () => Move(1, stretch: true), showInHints: false)
-                .Add("pgup", "Page up", () => Page(-1), showInHints: false)
-                .Add("pgdn", "Page down", () => Page(1), showInHints: false)
-                .Add("home", "Top", () => End(top: true), showInHints: false)
-                .Add("end", "Bottom", () => End(top: false), showInHints: false)
+            // The keys are the Markdown view's; they're bound here to be listed in help
+            Keys.Add("up", "Previous block", () => Send(ConsoleKey.UpArrow), showInHints: false)
+                .Add("down", "Next block", () => Send(ConsoleKey.DownArrow), showInHints: false)
+                .Add("shift+up", "Stretch up", () => Send(ConsoleKey.UpArrow, shift: true), showInHints: false)
+                .Add("shift+down", "Stretch down", () => Send(ConsoleKey.DownArrow, shift: true), showInHints: false)
+                .Add("pgup", "Page up", () => Send(ConsoleKey.PageUp), showInHints: false)
+                .Add("pgdn", "Page down", () => Send(ConsoleKey.PageDown), showInHints: false)
+                .Add("home", "Top", () => Send(ConsoleKey.Home), showInHints: false)
+                .Add("end", "Bottom", () => Send(ConsoleKey.End), showInHints: false)
+                .Add("f7", "Caret", () => Send(ConsoleKey.F7), showInHints: false)
                 .Add("ctrl+n", "To Notes", _screen.SendToNotes)
-                .Add("ctrl+c", "Copy", _screen.Copy, showInHints: false)
+                .Add("ctrl+c", "Copy", () => Send(ConsoleKey.C, control: true), showInHints: false)
                 .Add("esc", "List", Back);
         }
 
-        /// <summary>A file was read: lay it out again, highlighting <paramref name="block"/>.</summary>
-        public void Show(int block)
+        /// <summary>A file was read: show it, highlighting <paramref name="block"/>.</summary>
+        public void Show(string source, bool plainText, int block)
         {
-            Scroll.ClearSelection();
-            _laidWidth = -1;
-            _anchor = _active = Math.Clamp(block, 0, Math.Max(0, _screen.Blocks.Count - 1));
-            Scroll.Offset = 0;
-            _follow = true;
+            Document.PlainText = plainText;
+            Document.Source = source;
+            Document.SetHighlight(block);
         }
 
-        public override bool HandleKey(ConsoleKeyInfo key)
-        {
-            if (key.Key == ConsoleKey.C && key.Modifiers == ConsoleModifiers.Control)
-            {
-                _screen.Copy();
-                return true;
-            }
-            return false;
-        }
+        public override bool HandleKey(ConsoleKeyInfo key) => Document.HandleKey(key);
 
+        public override bool HandleMouse(MouseEvent mouse) => Showing && Document.HandleMouse(mouse);
+
+        // Esc clears a selection, then hides the caret, then goes back to the list
         private void Back()
         {
-            if (Scroll.HasSelection) Scroll.ClearSelection();
-            else _screen.Focus.Focus(_screen._list);
+            if (!Send(ConsoleKey.Escape)) _screen.Focus.Focus(_screen._list);
         }
 
-        private void Move(int by, bool stretch)
-        {
-            if (_screen.Blocks.Count == 0) return;
-            Scroll.ClearSelection();
-            _active = Math.Clamp(_active + by, 0, _screen.Blocks.Count - 1);
-            if (!stretch) _anchor = _active;
-            _follow = true;
-        }
+        private bool Send(ConsoleKey key, bool shift = false, bool control = false) =>
+            Document.HandleKey(new ConsoleKeyInfo(key == ConsoleKey.C && control ? '\x03' : key == ConsoleKey.Escape ? '\x1b' : '\0', key, shift, false, control));
 
-        private void Page(int by)
-        {
-            if (Laid is null || _screen.Blocks.Count == 0) return;
-            Scroll.ClearSelection();
-            Scroll.ScrollBy(by * Math.Max(1, Scroll.ViewportHeight - 1));
-            _anchor = _active = FirstInView();
-        }
-
-        private void End(bool top)
-        {
-            if (_screen.Blocks.Count == 0) return;
-            Scroll.ClearSelection();
-            _anchor = _active = top ? 0 : _screen.Blocks.Count - 1;
-            Scroll.Offset = top ? 0 : int.MaxValue;
-            _follow = true;
-        }
-
-        public override bool HandleMouse(MouseEvent mouse)
-        {
-            ArgumentNullException.ThrowIfNull(mouse);
-            if (_screen.Blocks.Count == 0 || Laid is null) return false;
-            // A click on a block highlights it; the press also starts a text selection
-            if (mouse.IsClick && _text.Contains(mouse.X, mouse.Y) && Scroll.Offset + mouse.Y - _text.Y is var row
-                && row < Laid.Rows.Count && Laid.RowBlock[row] is >= 0 and var block)
-            {
-                _anchor = _active = block;
-            }
-            var handled = Scroll.HandleMouse(mouse);
-            if (handled) KeepInView();
-            return handled;
-        }
-
-        // The wheel or the scrollbar moved the page: a highlight out of view moves to the nearest block in view
-        private void KeepInView()
-        {
-            if (Laid is null || Highlight is not { } h) return;
-            var (first, last) = (Laid.BlockRows[h.First].First, Laid.BlockRows[h.Last].Last);
-            var top = Scroll.Offset;
-            var bottom = top + Scroll.ViewportHeight - 1;
-            if (last < top) _anchor = _active = FirstInView();
-            else if (first > bottom) _anchor = _active = LastInView();
-        }
-
-        private int FirstInView()
-        {
-            var top = Scroll.Offset;
-            for (var b = 0; b < Laid!.BlockCount; b++)
-                if (Laid.BlockRows[b].First >= top) return b;
-            return Laid.BlockCount - 1;
-        }
-
-        private int LastInView()
-        {
-            var bottom = Scroll.Offset + Scroll.ViewportHeight - 1;
-            for (var b = Laid!.BlockCount - 1; b >= 0; b--)
-                if (Laid.BlockRows[b].Last <= bottom) return b;
-            return 0;
-        }
+        private bool Showing => _screen.Open is not null && _screen.Problem is null && Document.Blocks.Count > 0;
 
         public override void Render(CellBuffer buf, Rect area, RenderContext ctx)
         {
@@ -511,53 +415,16 @@ internal sealed class ReaderScreen : Screen
             var title = _screen.Open is { } open ? $" {Path.GetFileName(open)} " : " Reader ";
             var inner = Widget.Block().Title(title).Focused(ctx.Focused).Draw(buf, area);
             if (inner.IsEmpty) return;
-            if (_screen.Open is null || _screen.Problem is not null || _screen.Blocks.Count == 0)
+            if (!Showing)
             {
                 var message = _screen.Open is null
                     ? _screen.Entries.All(e => e.Name == "..") ? "There's nothing to read in this folder." : "Pick a .md or .txt file on the left. Enter reads it."
                     : _screen.Problem ?? "This file is empty.";
                 Widget.Paragraph().Text(new Text([new Line(message, ctx.Theme.TextMuted)])).Wrap(WrapMode.Word)
                     .Draw(buf, inner with { X = inner.X + 1, Width = Math.Max(0, inner.Width - 1) });
-                Laid = null;
                 return;
             }
-
-            // The bar's 2 columns, then the text to the pane's edge, less a column for the scrollbar
-            var width = inner.Width - Gutter - 1;
-            if (width != _laidWidth || ctx.Theme != _laidTheme || Laid is null)
-            {
-                Laid = MiniTui.Desk.Reader.Page.Layout(_screen.Blocks, width, PageStyles.From(ctx.Theme));
-                _laidWidth = width;
-                _laidTheme = ctx.Theme;
-                _follow = true;
-            }
-            _text = new Rect(inner.X + Gutter, inner.Y, Math.Min(inner.Width - Gutter, width + 1), inner.Height);
-            if (_follow)
-            {
-                _follow = false;
-                Follow(_text.Height);
-            }
-            Widget.Paragraph().Text(new Text(Laid.Rows.ToList())).State(Scroll).Draw(buf, _text);
-
-            if (Highlight is { } h)
-            {
-                var bar = PageStyles.From(ctx.Theme).Bar;
-                for (var row = Laid.BlockRows[h.First].First; row <= Laid.BlockRows[h.Last].Last; row++)
-                {
-                    var y = inner.Y + row - Scroll.Offset;
-                    if (y >= inner.Y && y < inner.Bottom) buf.SetString(inner.X, y, "▌", bar, 1);
-                }
-            }
-        }
-
-        // Scroll so the active block shows, its top first if it's taller than the page
-        private void Follow(int height)
-        {
-            if (Laid is null) return;
-            var (first, last) = Laid.BlockRows[_active];
-            if (first < Scroll.Offset || last >= Scroll.Offset + height)
-                Scroll.Offset = last >= Scroll.Offset + height && last - first < height ? last - height + 1 : first;
-            if (_active == 0) Scroll.Offset = 0;
+            Widget.Markdown(Document).Focused(ctx.Focused).Draw(buf, inner);
         }
     }
 }

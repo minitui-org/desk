@@ -29,7 +29,8 @@ That's the passage, unless you've selected text with the mouse.
 | Click, drag, wheel | Page | Highlight a block; select text; scroll |
 | `Ctrl+N` | Page | Send the passage to Notes |
 | `Ctrl+C` | Page | Copy the passage |
-| `Esc` | Page | Clear a selection, or back to the list |
+| `F7` | Page | Show a caret: the arrows move it and `Shift` with them selects text. `F7` or `Esc` hides it |
+| `Esc` | Page | Clear a selection, hide the caret, or back to the list |
 | `F1` | Both | Show the keys |
 | `Ctrl+Q` | Both | Quit |
 
@@ -62,12 +63,13 @@ To try it inside Desk, add both to `~/.config/tuidesk/apps.json`:
 
 ## Gaps in MiniTui
 
-What Reader needed from MiniTui and didn't find (spec §13.1), each a MiniTui issue:
+What Reader needed from MiniTui and didn't find (spec §13.1), each a MiniTui issue. All three are fixed in MiniTui
+2.4.0, and Reader uses the fixes:
 
-- **No Markdown widget** ([#89](https://github.com/minitui-org/minitui/issues/89)). Reader formats a CommonMark
-  subset itself, in `Markdown.cs`, `Inline.cs` and `Page.cs`, which could move into MiniTui. The theme has no heading,
-  code or link styles either, so Reader uses `TitleFocused` for headings and `Info` for code and links.
+- **No Markdown widget** ([#89](https://github.com/minitui-org/minitui/issues/89)). Reader formatted a CommonMark
+  subset itself; that code moved into MiniTui as `Widget.Markdown` and `MarkdownState`, with the theme's new
+  `Heading`, `Code` and `Link` styles, and the block highlight as its block cursor.
 - **Paragraph text can only be selected with the mouse** ([#90](https://github.com/minitui-org/minitui/issues/90)).
-  So the passage is a highlighted block you move with the arrows, and a mouse drag still selects exact text.
-- **Wrapping styled text into rows is internal** ([#91](https://github.com/minitui-org/minitui/issues/91)). Reader
-  wraps its rows itself, to know which block each row belongs to and to indent wrapped lines under a bullet.
+  `F7` now shows a caret for selecting with the keyboard.
+- **Wrapping styled text into rows is internal** ([#91](https://github.com/minitui-org/minitui/issues/91)). Now
+  `Paragraph.Wrap`, which the Markdown widget uses.

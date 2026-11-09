@@ -149,10 +149,4 @@ public sealed class FilesTests : IDisposable
     {
         Assert.Equal("> Tomatoes need sun\n>\n> and water.\n\n— ~/docs/garden.md\n\n", Passages.Quote("\nTomatoes need sun  \n\nand water.\n\n", "~/docs/garden.md"));
     }
-
-    [Fact]
-    public void A_passage_loses_the_indentation_its_lines_share()
-    {
-        Assert.Equal("- b\n  more\n\n- c", Passages.Dedent(["    - b", "      more", "", "    - c"]));
-    }
 }
