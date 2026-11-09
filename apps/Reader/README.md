@@ -18,12 +18,13 @@ That's the passage, unless you've selected text with the mouse.
 
 | Key | Where | Does |
 |---|---|---|
-| `↑` `↓` `PgUp` `PgDn` `Home` `End` | List | Select a file or folder, and show a selected file |
-| Typing, `Backspace` | List | Filter by name. `Esc` clears the filter |
-| `Enter`, `→` | List | Go into a folder, or read a file |
-| `←`, `Backspace` with nothing typed | List | Up to the folder above |
+| `↑` `↓` `j` `k` `PgUp` `PgDn` `Home` `End` | List | Select a file or folder, and show a selected file |
+| `/`, then typing | List | Filter by name. `Enter` keeps the filter and `Esc` clears it, and either gives the keys back to the list |
+| `Enter`, `→`, `l` | List | Go into a folder, or read a file |
+| `←`, `h`, `Backspace` | List | Up to the folder above (`←` and `Backspace` edit a filter being typed) |
+| `h` | Page | Back to the list. With the caret showing, `h` and `l` move it |
 | `Tab` | Both | Swap between the list and the page |
-| `↑` `↓` | Page | Move the highlight a block |
+| `↑` `↓` `j` `k` | Page | Move the highlight a block |
 | `Shift+↑` `Shift+↓` | Page | Stretch the highlight over the block above or below |
 | `PgUp` `PgDn` `Home` `End` | Page | Scroll, taking the highlight along |
 | Click, drag, wheel | Page | Highlight a block; select text; scroll |

@@ -600,16 +600,18 @@ Clipboard over the protocol, rendering over the socket, IPC between apps (§8.4)
 
 | Key | Where | Does |
 |---|---|---|
-| `↑` `↓` `PgUp` `PgDn` `Home` `End` | List | Select a note, which shows in the editor |
-| Typing, `Backspace` | List | Filter by name, opening the best match. `Esc` clears the filter |
+| `↑` `↓` `j` `k` `PgUp` `PgDn` `Home` `End` | List | Select a note, which shows in the editor |
+| `/`, then typing | List | Filter by name, opening the best match. `Enter` keeps the filter and `Esc` clears it, and either gives the keys back to the list |
 | Click, double-click | List | Open a note; edit it |
-| `Enter`, `Tab` | List | Edit the selected note |
+| `Enter`, `Tab`, `l` | List | Edit the selected note |
 | `Esc` | Editor | Back to the list |
 | `Tab`, `Shift+Tab` | Editor | Indent and outdent the line, or the selected lines |
 | `Ctrl+N` | Both | New note, asking for its name, which starts as the filter |
 | `F2` | Both | Rename the selected note |
 | `Delete` | List | Delete the selected note, after confirming |
-| `F1` | Both | Show the keys (`?` is typed here) |
+| `F1`, or `?` in the list | Both | Show the keys |
+
+- **Decision, asked:** the list has the keys, not its filter line, here and in Tasks (§13.9) and Reader (§13.10): `j` and `k` move and `/` starts the filter, as people who use vim-style keys expect. The lists first filtered as you typed, which put `j` in the filter. Desk's launcher and switcher keep filtering as you type (§12.3), since they're opened to find one thing by name. It's MiniTui's `FilterListState.TypeToFilter`, off (MiniTui 2.5.0).
 | `Ctrl+Q` | Both | Quit |
 
 The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and the clipboard. The Markdown is edited as text, with no preview. `Tab` indents with spaces to the next multiple of 4 (MiniTui's `TabIndents`), and Enter keeps the line's indentation. The editor holds only spaces, so a tab character in a note made elsewhere becomes spaces when it's next saved.
@@ -633,12 +635,12 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 - **Writing:** every change reads the file again first and changes only its own line, then writes the whole file by renaming a temporary file over it, as Notes does. Every other line is written back byte for byte. If the line has changed or gone meanwhile, the change isn't made: Tasks says so and shows the file as it is now. The folder and file are made with the first task.
 - **Changed elsewhere:** the file is read again when Tasks gets the focus back in Desk, and once a minute if its time has changed.
 
-**Screen:** one list, filtered by typing, of tasks in this order: those with a due date by when they're due (so overdue ones first), then those without by priority and their place in the file, then the done ones. Each row is the task's text without the date tags, the priority in front, and its due time on the right: `Overdue · Nov 5` (in the error color, as well as the word, so it doesn't rest on color alone), `Today 15:00`, `Tomorrow`, `Fri`, `Nov 20`, or `2027-01-04` in another year. Done tasks are muted, with `Done · Nov 6` on the right. With no tasks, the list says how to add one.
+**Screen:** one list, filtered with `/`, of tasks in this order: those with a due date by when they're due (so overdue ones first), then those without by priority and their place in the file, then the done ones. Each row is the task's text without the date tags, the priority in front, and its due time on the right: `Overdue · Nov 5` (in the error color, as well as the word, so it doesn't rest on color alone), `Today 15:00`, `Tomorrow`, `Fri`, `Nov 20`, or `2027-01-04` in another year. Done tasks are muted, with `Done · Nov 6` on the right. With no tasks, the list says how to add one.
 
 | Key | Does |
 |---|---|
-| `↑` `↓` `PgUp` `PgDn` `Home` `End` | Select a task |
-| Typing, `Backspace` | Filter. `Esc` clears the filter |
+| `↑` `↓` `j` `k` `PgUp` `PgDn` `Home` `End` | Select a task |
+| `/`, then typing | Filter. `Enter` keeps the filter and `Esc` clears it, and either gives the keys back to the list |
 | Click, double-click | Select a task; edit it |
 | `Ctrl+N` | New task, asking for its text, which starts as the filter |
 | `Enter` | Edit the selected task's text, tags and priority included |
@@ -703,13 +705,14 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 
 | Key | Where | Does |
 |---|---|---|
-| `↑` `↓` `PgUp` `PgDn` `Home` `End` | List | Select a file or folder, and show a selected file |
-| Typing, `Backspace` | List | Filter by name. `Esc` clears the filter |
-| `Enter`, `→` | List | Go into a folder, or read a file |
-| `←`, `Backspace` with nothing typed | List | Up to the folder above |
+| `↑` `↓` `j` `k` `PgUp` `PgDn` `Home` `End` | List | Select a file or folder, and show a selected file |
+| `/`, then typing | List | Filter by name. `Enter` keeps the filter and `Esc` clears it, and either gives the keys back to the list |
+| `Enter`, `→`, `l` | List | Go into a folder, or read a file |
+| `←`, `h`, `Backspace` | List | Up to the folder above (`←` and `Backspace` edit a filter being typed) |
+| `h` | Page | Back to the list. With the caret showing, `h` and `l` move it |
 | `Tab` | Both | Swap between the list and the page |
 | Click, double-click | List | Select; go in or read |
-| `↑` `↓` | Page | Move the highlight a block |
+| `↑` `↓` `j` `k` | Page | Move the highlight a block |
 | `Shift+↑` `Shift+↓` | Page | Stretch the highlight over the block above or below |
 | `PgUp` `PgDn` `Home` `End` | Page | Scroll a page, or to the top or bottom, and move the highlight with it |
 | Click, drag, wheel | Page | Highlight a block; select text; scroll |

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An example that runs a shell in a pane of an ordinary MiniTui app, and `tools/key_probe.py`, which compares the bytes a program receives with bare tmux.
 
 ### Changed
+- In Notes, Tasks and Reader the list has the keys rather than its filter line: `j` and `k` move, `/` starts a filter, Enter keeps it and Esc clears it. `l` edits a note or goes into a folder or file, and `h` goes up a folder or from Reader's page back to its list. `?` opens help in the lists. Desk's launcher and switcher still filter as you type. Needs MiniTui 2.5.0.
 - The launcher's, switcher's and notifications list's footer sits below a rule joined to the frame, and draws each key bold in the title color and what it does as text, rather than all of it muted, so the keys stand out as keys and not as more rows.
 - Tasks mutes done tasks and shows an overdue time in the error color (minitui#88, in MiniTui 2.4.0), in place of the `✓` before a done task. `Overdue` stays in the text.
 - MiniTui 2.4.0, which fixes the three gaps Reader found (minitui#89 to #91): Reader's Markdown formatting moved into MiniTui as `Widget.Markdown`, which Reader now uses, and `F7` shows a caret for selecting text with the keyboard.
