@@ -354,10 +354,11 @@ internal sealed class NotesScreen : Screen
             State.Activated += (_, _) => _screen.Edit();
         }
 
-        public FilterListState State { get; } = new();
+        // The list has the keys, j and k among them, until / asks for the filter
+        public FilterListState State { get; } = new() { TypeToFilter = false };
 
         public override string KeysGroup => "List";
-        public override bool CapturesText => true;
+        public override bool CapturesText => State.Filtering;
 
         public string Filter => State.Filter.Text;
 
@@ -365,7 +366,8 @@ internal sealed class NotesScreen : Screen
 
         protected override void OnMount()
         {
-            Keys.Add("enter,tab", "Edit", _screen.Edit)
+            Keys.Add("enter,tab,l", "Edit", _screen.Edit)
+                .Add("/", "Filter", () => State.Filtering = true)
                 .Add("delete", "Delete", _screen.Delete);
         }
 
@@ -377,12 +379,15 @@ internal sealed class NotesScreen : Screen
 
         public override bool HandleKey(ConsoleKeyInfo key)
         {
+            // The list's keys: what it doesn't use (Enter, Tab, Delete, letters) is the bindings'
+            if (!State.Filtering) return State.HandleKey(key);
+
             var ctrlOrAlt = (key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) != 0;
             switch (key.Key)
             {
-                // Enter, Tab and Delete are the bindings'
-                case ConsoleKey.Enter or ConsoleKey.Delete when !ctrlOrAlt:
+                // Tab leaves the filter for the editor, keeping what was typed
                 case ConsoleKey.Tab when !ctrlOrAlt:
+                    State.Filtering = false;
                     return false;
                 // With nothing typed, Home and End go to the first and last note
                 case ConsoleKey.Home or ConsoleKey.End when !ctrlOrAlt && Filter.Length == 0:
@@ -422,7 +427,7 @@ internal sealed class NotesScreen : Screen
             ArgumentNullException.ThrowIfNull(ctx);
             Widget.FilterList(State)
                 .Block(Widget.Block().Title(" Notes "))
-                .Placeholder("Type to filter")
+                .Placeholder("/ to filter")
                 .Empty(_screen._notes.Count == 0 ? "No notes yet" : "No match")
                 .Focused(ctx.Focused)
                 .Draw(buf, area);

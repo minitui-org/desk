@@ -96,7 +96,10 @@ public sealed class ScreenTests : IDisposable
     {
         Seed("Shopping", "milk");
         Start();
-        Assert.Contains("f1 Help", Status, StringComparison.Ordinal);
+        Assert.Contains("? Help", Status, StringComparison.Ordinal); // the list has the keys, so ? isn't typed
+        Type("/");
+        Assert.Contains("f1 Help", Status, StringComparison.Ordinal); // and in the filter it is
+        Press("esc");
         Press("f1");
         Assert.IsType<HelpOverlay>(Harness.App.Overlays.Top);
         Assert.Contains("ctrl+n", Screen, StringComparison.Ordinal);
@@ -403,13 +406,13 @@ public sealed class ScreenTests : IDisposable
     }
 
     [Fact]
-    public void Typing_in_the_list_filters_and_opens_the_best_match()
+    public void Slash_then_typing_in_the_list_filters_and_opens_the_best_match()
     {
         Seed("Shopping", "eggs", minutesAgo: 1);
         Seed("Work plan", "ship it", minutesAgo: 2);
         Seed("Holiday", "beach", minutesAgo: 3);
         Start();
-        Type("plan");
+        Type("/plan");
         Assert.Equal(["Work plan"], Notes.Showing);
         Assert.Equal("Work plan", Notes.Current);
         Type("zzz");
@@ -422,11 +425,48 @@ public sealed class ScreenTests : IDisposable
     }
 
     [Fact]
+    public void J_and_k_move_through_the_notes_and_l_edits()
+    {
+        Seed("Shopping", "eggs", minutesAgo: 1);
+        Seed("Work plan", "ship it", minutesAgo: 2);
+        Seed("Holiday", "beach", minutesAgo: 3);
+        Start();
+        Type("j");
+        Assert.Equal("Work plan", Notes.Current);
+        Type("j");
+        Assert.Equal("Holiday", Notes.Current);
+        Type("k");
+        Assert.Equal("Work plan", Notes.Current);
+        Assert.Equal(3, Notes.Showing.Count()); // nothing was filtered
+
+        Type("l");
+        Type("!");
+        Assert.Equal("ship it!", Notes.Text.Text);
+    }
+
+    [Fact]
+    public void Enter_keeps_the_filter_and_enter_again_edits()
+    {
+        Seed("Shopping", "eggs", minutesAgo: 1);
+        Seed("Work plan", "ship it", minutesAgo: 2);
+        Start();
+        Type("/plan");
+        Press("enter");
+        Assert.Equal(["Work plan"], Notes.Showing);
+        Type("x"); // the list's again, so not typed anywhere
+        Assert.Equal(["Work plan"], Notes.Showing);
+        Assert.Equal("ship it", Notes.Text.Text);
+        Press("enter");
+        Type("!");
+        Assert.Equal("ship it!", Notes.Text.Text);
+    }
+
+    [Fact]
     public void A_new_note_is_named_from_the_filter()
     {
         Seed("Shopping", "");
         Start();
-        Type("Recipes");
+        Type("/Recipes");
         Press("ctrl+n");
         Press("enter");
         Assert.Equal("Recipes", Notes.Current);

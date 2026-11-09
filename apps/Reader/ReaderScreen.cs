@@ -271,19 +271,21 @@ internal sealed class ReaderScreen : Screen
             State.Activated += (_, _) => _screen.Enter();
         }
 
-        public FilterListState State { get; } = new();
+        // The list has the keys, j and k among them, until / asks for the filter
+        public FilterListState State { get; } = new() { TypeToFilter = false };
 
         public string? Problem { get; set; }
 
         public override string KeysGroup => "List";
-        public override bool CapturesText => true;
+        public override bool CapturesText => State.Filtering;
 
         public Entry? Current => State.Selected is { } row ? _screen.Entries[row] : null;
 
         protected override void OnMount()
         {
-            Keys.Add("enter,right", "Open", _screen.Enter)
-                .Add("left", "Up", _screen.Up, showInHints: false);
+            Keys.Add("enter,right,l", "Open", _screen.Enter)
+                .Add("/", "Filter", () => State.Filtering = true)
+                .Add("left,h,backspace", "Up", _screen.Up, showInHints: false);
         }
 
         public void ClearFilter() => Quietly(State.Filter.Clear);
@@ -299,19 +301,21 @@ internal sealed class ReaderScreen : Screen
 
         public override bool HandleKey(ConsoleKeyInfo key)
         {
+            // The list's keys: what it doesn't use (Enter, Tab, ← →, Backspace, letters) is the bindings'
+            if (!State.Filtering) return State.HandleKey(key);
+
             var ctrlOrAlt = (key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) != 0;
             var empty = State.Filter.Text.Length == 0;
             switch (key.Key)
             {
-                case ConsoleKey.Enter when !ctrlOrAlt:
+                // Tab leaves the filter for the page, keeping what was typed
                 case ConsoleKey.Tab:
+                    State.Filtering = false;
                     return false;
-                // With nothing typed the arrows go in and out; with a filter they move in it
+                // With nothing typed the arrows and Backspace go in and out; with a filter they edit it
                 case ConsoleKey.RightArrow or ConsoleKey.LeftArrow when !ctrlOrAlt && key.Modifiers == 0 && empty:
-                    return false;
                 case ConsoleKey.Backspace when !ctrlOrAlt && empty:
-                    _screen.Up();
-                    return true;
+                    return false;
                 case ConsoleKey.Home or ConsoleKey.End when !ctrlOrAlt && empty:
                     return State.HandleKey(new ConsoleKeyInfo(key.KeyChar, key.Key, false, false, control: true));
             }
@@ -340,7 +344,7 @@ internal sealed class ReaderScreen : Screen
             ArgumentNullException.ThrowIfNull(ctx);
             Widget.FilterList(State)
                 .Block(Widget.Block().Title($" {Files.Pretty(_screen.Folder)} "))
-                .Placeholder("Type to filter")
+                .Placeholder("/ to filter")
                 .Empty(Problem is { } problem ? $"Can't read this folder: {problem}" : _screen.Entries.Count == 0 ? "Nothing to read here" : "No match")
                 .Focused(ctx.Focused)
                 .Draw(buf, area);
@@ -383,7 +387,9 @@ internal sealed class ReaderScreen : Screen
                 .Add("f7", "Caret", () => Send(ConsoleKey.F7), showInHints: false)
                 .Add("ctrl+n", "To Notes", _screen.SendToNotes)
                 .Add("ctrl+c", "Copy", () => Send(ConsoleKey.C, control: true), showInHints: false)
-                .Add("esc", "List", Back);
+                .Add("esc", "List", Back)
+                .Add("h", "List", () => Sideways(ConsoleKey.LeftArrow), showInHints: false)
+                .Add("l", "Caret right", () => Sideways(ConsoleKey.RightArrow), showInHints: false);
         }
 
         /// <summary>A file was read: show it, highlighting <paramref name="block"/>.</summary>
@@ -402,6 +408,13 @@ internal sealed class ReaderScreen : Screen
         private void Back()
         {
             if (!Send(ConsoleKey.Escape)) _screen.Focus.Focus(_screen._list);
+        }
+
+        // h and l move the caret while it shows; without it h goes back to the list, as ← does from the list's side
+        private void Sideways(ConsoleKey arrow)
+        {
+            if (Document.Scroll.CaretVisible) Send(arrow);
+            else if (arrow == ConsoleKey.LeftArrow) _screen.Focus.Focus(_screen._list);
         }
 
         private bool Send(ConsoleKey key, bool shift = false, bool control = false) =>

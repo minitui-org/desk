@@ -130,6 +130,37 @@ public sealed class ScreenTests : IDisposable
     }
 
     [Fact]
+    public void J_and_k_move_and_l_and_h_go_into_a_folder_and_a_file_and_back()
+    {
+        Make("recipes/soup.md", "Soup");
+        Start();
+        Type("j");
+        Type("l");
+        Assert.Equal(Path.Combine(Docs, "recipes"), Reader.Folder);
+        Type("j");
+        Assert.Contains("Soup", Screen, StringComparison.Ordinal);
+        Type("l");
+        Assert.True(Reader.IsReading);
+        Type("h"); // from the page, back to the list
+        Assert.False(Reader.IsReading);
+        Assert.Equal(Path.Combine(Docs, "recipes"), Reader.Folder);
+        Type("k");
+        Type("h"); // and from the list, up a folder
+        Assert.Equal(Docs, Reader.Folder);
+    }
+
+    [Fact]
+    public void With_the_caret_showing_h_and_l_move_it()
+    {
+        Start(Make("garden.md", Garden));
+        Press("f7");
+        Type("llh"); // two along "Garden" and one back
+        Assert.True(Reader.IsReading);
+        Press("shift+right");
+        Assert.Equal("a", Reader.Passage());
+    }
+
+    [Fact]
     public void Enter_and_right_go_into_a_folder_and_left_and_backspace_come_back_to_it()
     {
         Make("recipes/soup.md", "Soup");
@@ -152,13 +183,15 @@ public sealed class ScreenTests : IDisposable
     }
 
     [Fact]
-    public void Typing_filters_and_backspace_then_edits_the_filter()
+    public void Slash_then_typing_filters_and_backspace_then_edits_the_filter()
     {
         Make("garden.md");
         Make("grocery.md");
         Make("work.txt");
         Start();
-        Type("gr");
+        Type("gr"); // the list's keys, so nothing is filtered
+        Assert.Equal(4, Reader.Showing.Count());
+        Type("/gr");
         Assert.Equal(["garden.md", "grocery.md"], Reader.Showing.Order());
         Press("backspace");
         Assert.Equal(Docs, Reader.Folder);
@@ -261,10 +294,10 @@ public sealed class ScreenTests : IDisposable
     public void A_narrow_screen_shows_one_side()
     {
         Start(Make("garden.md", Garden), width: 40);
-        Assert.DoesNotContain("Type to filter", Screen, StringComparison.Ordinal);
+        Assert.DoesNotContain("/ to filter", Screen, StringComparison.Ordinal);
         Assert.Contains("Tomatoes", Screen, StringComparison.Ordinal);
         Press("esc");
-        Assert.Contains("Type to filter", Screen, StringComparison.Ordinal);
+        Assert.Contains("/ to filter", Screen, StringComparison.Ordinal);
     }
 
     [Fact]
