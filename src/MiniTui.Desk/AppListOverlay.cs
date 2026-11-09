@@ -116,22 +116,38 @@ internal sealed class AppListOverlay : Overlay
         _rowsArea = list with { Y = list.Y + 2, Height = Math.Max(0, list.Height - 2) };
     }
 
-    // Each key goes on the first row with room for it, and what doesn't fit is left to the help
+    // Each key goes on the first row with room for it, and what doesn't fit is left to the help. An item is the key,
+    // a space, and what it does: the key is drawn bold in the title's color and the rest as text, so they read as keys.
     private void DrawFooter(CellBuffer buf, Rect area, Theme theme)
     {
-        var rows = new string[area.Height];
+        var rows = new List<string>[area.Height];
+        var widths = new int[area.Height];
         foreach (var item in _footer)
         {
+            var width = UnicodeWidth.Of(item);
             for (var i = 0; i < rows.Length; i++)
             {
-                var text = rows[i] is { } row ? row + "  " + item : item;
-                if (UnicodeWidth.Of(text) > area.Width) continue;
-                rows[i] = text;
+                var row = rows[i] ??= [];
+                var needed = row.Count == 0 ? width : widths[i] + 2 + width;
+                if (needed > area.Width) continue;
+                row.Add(item);
+                widths[i] = needed;
                 break;
             }
         }
+        var key = theme.Text.Patch(new Style(theme.ModalTitle.Fg)).Bold();
         for (var i = 0; i < rows.Length; i++)
-            if (rows[i] is { } row) buf.SetString(area.X, area.Y + i, row, theme.TextMuted, area.Width);
+        {
+            var x = area.X;
+            foreach (var item in rows[i] ?? [])
+            {
+                if (x > area.X) x += 2;
+                var space = item.IndexOf(' ', StringComparison.Ordinal);
+                var (k, does) = space < 0 ? (item, "") : (item[..space], item[space..]);
+                x += buf.SetString(x, area.Y + i, k, key, area.Right - x);
+                x += buf.SetString(x, area.Y + i, does, theme.Text, area.Right - x);
+            }
+        }
     }
 
     private void Choose()
