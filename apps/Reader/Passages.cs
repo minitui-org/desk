@@ -20,12 +20,4 @@ internal static class Passages
         var quoted = string.Join('\n', lines.Select(l => l.Length == 0 ? ">" : "> " + l));
         return $"{quoted}\n\n— {from}\n\n";
     }
-
-    /// <summary>Lines without the indentation they all share, so a nested list item isn't quoted as code.</summary>
-    public static string Dedent(IReadOnlyList<string> lines)
-    {
-        ArgumentNullException.ThrowIfNull(lines);
-        var shared = lines.Where(l => l.Trim().Length > 0).Select(l => l.Length - l.TrimStart(' ').Length).DefaultIfEmpty(0).Min();
-        return string.Join('\n', lines.Select(l => l.Length >= shared ? l[shared..] : l.TrimStart(' ')));
-    }
 }

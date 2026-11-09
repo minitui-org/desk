@@ -401,7 +401,7 @@ tests/MiniTui.Vt.Tests/
 tests/MiniTui.Desk.Tests/
 examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 ```
-- Both reference the `MiniTui` NuGet package (2.3.0 since Phase 2), not a source checkout.
+- Both reference the `MiniTui` NuGet package (2.4.0 since Phase 2), not a source checkout.
 - The build gate is MiniTui's: `-warnaserror`, xUnit, and CI on Ubuntu. Every PR updates `CHANGELOG.md`.
 - Nothing is published in Phase 1.
 
@@ -584,7 +584,7 @@ One branch and PR each.
 **2c, 2d, 2e — One app each.** §13.5. Notes (2c), Tasks (2d) and Reader (2e) are done: §13.8 to §13.10.
 - [x] The app works with the keyboard alone, and with no existing data. Notes, Tasks and Reader: done.
 - [x] Its screens are identical in Desk and outside it, tested by running it both ways. Only the status line and notifications differ. Notes, Tasks and Reader: done.
-- [x] Its gaps are filed against MiniTui. Notes: minitui#74 to #79, fixed in MiniTui 2.2.0, and #85 (help while typing), fixed in 2.3.0, which Notes and `tuidesk` now use in place of their workarounds. Tasks: minitui#88 (row styles), worked around with `✓` and `Overdue` in the text. Reader: minitui#89 (no Markdown widget), worked around with its own formatter, #90 (paragraph text can only be selected with the mouse), worked around with a highlighted block, and #91 (wrapping styled text is internal), worked around with its own wrapping.
+- [x] Its gaps are filed against MiniTui. Notes: minitui#74 to #79, fixed in MiniTui 2.2.0, and #85 (help while typing), fixed in 2.3.0, which Notes and `tuidesk` now use in place of their workarounds. Tasks: minitui#88 (row styles), worked around with `✓` and `Overdue` in the text. Reader: minitui#89 (no Markdown widget), #90 (paragraph text can only be selected with the mouse) and #91 (wrapping styled text is internal), first worked around with its own formatter, a highlighted block and its own wrapping, then fixed in MiniTui 2.4.0, where Reader's formatter and block highlight moved; Reader now uses `Widget.Markdown`.
 
 **Phase exit:** the apps show their name and status in the shell and route notifications through it, and Ben uses them in a working session.
 
@@ -661,7 +661,7 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 - **Reading a file:** as UTF-8, with a byte order mark skipped and invalid bytes shown as `�`. A file over 10 MiB, or with a NUL byte in its first 8 KiB, isn't shown: the page says why. Tabs become spaces to the next multiple of 4. Line ends can be `\n` or `\r\n`.
 - **Changed elsewhere:** the open file is read again when Reader gets the focus back in Desk and when it's selected again, keeping the highlighted block by its number.
 
-**Decision: formatted Markdown, drawn by Reader.** MiniTui has no Markdown widget (a gap, filed against MiniTui). Reader formats a CommonMark subset itself, in its own files, so the code could move into MiniTui later:
+**Decision: formatted Markdown, drawn by MiniTui.** Reader first formatted a CommonMark subset itself, as MiniTui had no Markdown widget (minitui#89); that code moved into MiniTui 2.4.0 as `Widget.Markdown` and `MarkdownState`, which Reader now uses, with the theme's `Heading`, `Code` and `Link` styles:
 
 | Markdown | Shown as |
 |---|---|
@@ -676,13 +676,13 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 | `>` quotes | A `│` bar in the muted style before each row, nested for `> >` |
 | Fenced (```` ``` ````, `~~~`) and indented code | As written in the code style, indented by 2, wrapped at the page's edge rather than at words |
 | `---`, `***`, `___` on their own | A `─` rule across the page |
-| Tables | As written, line by line, each wrapped at words |
+| Tables | In aligned columns with a rule under the header, the widest cells wrapped to fit; a table too narrow for its columns as written |
 | HTML, link definitions, anything else | As written, wrapped like a paragraph |
 
 - **The page** is wrapped to the pane's full width, leaving 2 columns on the left for the highlight bar. A `.txt` file is shown as written, wrapped, with blank lines between its paragraphs.
 - A front matter block (`---` on the first line, up to the next `---`) isn't shown.
 
-**Decision: a highlighted block is the passage.** MiniTui paragraphs can only be selected with the mouse (a gap, filed against MiniTui), and Reader has to work with the keyboard alone. So one block is always highlighted with a `▌` bar in the accent color beside its rows: a heading, a paragraph, a list item, a quote paragraph, a code block, a rule or a table. `↑` and `↓` move the bar a block at a time, and the page scrolls to keep it in view. `Shift+↑` and `Shift+↓` stretch it over the blocks above or below. When the wheel or the scrollbar scrolls the bar out of view, it moves to the nearest block in view. A mouse drag still selects exact text, as in any MiniTui paragraph, and while there's a selection it's the passage.
+**Decision: a highlighted block is the passage.** Reader has to work with the keyboard alone. So one block is always highlighted, by `MarkdownState`'s block cursor, with a `▌` bar in the border color beside its rows (the focused border color while the page has focus): a heading, a paragraph, a list item, a quote paragraph, a code block, a rule or a table. `↑` and `↓` move the bar a block at a time, and the page scrolls to keep it in view. `Shift+↑` and `Shift+↓` stretch it over the blocks above or below. When the wheel or the scrollbar scrolls the bar out of view, it moves to the nearest block in view. A mouse drag still selects exact text, as in any MiniTui paragraph, and so does `F7`'s caret (MiniTui 2.4.0, minitui#90), which starts at the top of the highlight; while there's a selection it's the passage.
 
 **Decision: one note per document.** `Ctrl+N` sends the passage to a note named after the file without its extension, such as `garden-plan` for `garden-plan.md`, made if it doesn't exist and added to the end if it does. A leading `.` is dropped from the name, and an empty name becomes `Reader`. The passage goes in as a Markdown quote of the source as written (a mouse selection: as shown), then a line with where it's from, `— ~/docs/garden-plan.md`, and a blank line where Notes puts the cursor to write:
 
@@ -715,7 +715,8 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 | Click, drag, wheel | Page | Highlight a block; select text; scroll |
 | `Ctrl+N` | Page | Send the passage to Notes |
 | `Ctrl+C` | Page | Copy the passage |
-| `Esc` | Page | Clear a selection, or back to the list |
+| `F7` | Page | Show a caret: the arrows move it and `Shift` with them selects text. `F7` or `Esc` hides it |
+| `Esc` | Page | Clear a selection, hide the caret, or back to the list |
 | `F1` | Both | Show the keys |
 | `Ctrl+Q` | Both | Quit |
 

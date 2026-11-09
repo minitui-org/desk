@@ -226,7 +226,7 @@ public sealed class ScreenTests : IDisposable
         Assert.Equal("Paragraph 13.", Highlighted);
         Assert.DoesNotContain("Paragraph 1.", Screen, StringComparison.Ordinal);
         Press("pgdn");
-        Assert.Equal(Reader.Scroll.Offset, Reader.LaidOut!.BlockRows[Reader.Highlight!.Value.First].First);
+        Assert.Equal(Reader.Scroll.Offset, Reader.Document.RowsOf(Reader.Highlight!.Value.First)!.Value.First);
         Press("pgup");
         Press("pgup");
         Press("pgup");
@@ -242,7 +242,8 @@ public sealed class ScreenTests : IDisposable
         Harness.Scroll(60, 5, 10);
         Harness.RunUntilIdle();
         Assert.True(Reader.Scroll.Offset > 0);
-        Assert.Equal(Reader.LaidOut!.BlockRows[Reader.Highlight!.Value.First].First, Reader.LaidOut.BlockRows.First(b => b.First >= Reader.Scroll.Offset).First);
+        var firstInView = Enumerable.Range(0, Reader.Blocks.Count).First(b => Reader.Document.RowsOf(b)!.Value.First >= Reader.Scroll.Offset);
+        Assert.Equal(firstInView, Reader.Highlight!.Value.First);
         Assert.NotEqual("", Highlighted);
     }
 
@@ -270,8 +271,9 @@ public sealed class ScreenTests : IDisposable
     public void A_wide_screen_wraps_the_text_to_the_whole_pane()
     {
         Start(Make("wide.md", string.Join("\n\n", Enumerable.Repeat(string.Join(' ', Enumerable.Repeat("word", 60)), 20))), width: 160);
-        var widest = Reader.LaidOut!.Rows.Max(r => r.Width);
-        Assert.InRange(widest, 100, 160);
+        // The text runs past where an 80-column page beside the 32-column list would end
+        var lastWord = Harness.Lines.Max(l => l.LastIndexOf("word", StringComparison.Ordinal));
+        Assert.InRange(lastWord, 140, 157);
         // The scrollbar is on the pane's right edge, not beside the text in the middle of the pane
         Assert.NotEqual(' ', Harness.Lines[1][157]);
     }
@@ -324,6 +326,27 @@ public sealed class ScreenTests : IDisposable
         Assert.True(Reader.IsReading);
         Press("ctrl+n");
         Assert.StartsWith("> Tomatoes need sun.\n", _sent[^1].Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void F7_shows_a_caret_to_select_with_the_keyboard_and_esc_steps_back_out()
+    {
+        Start(Make("garden.md", Garden));
+        Press("down");
+        Press("f7");
+        for (var i = 0; i < 8; i++) Press("shift+right");
+        Press("ctrl+n");
+        Assert.StartsWith("> Tomatoes\n", _sent.Single().Text, StringComparison.Ordinal);
+
+        Press("esc");                       // the selection
+        Assert.True(Reader.Scroll.CaretVisible);
+        Press("esc");                       // the caret
+        Assert.False(Reader.Scroll.CaretVisible);
+        Assert.True(Reader.IsReading);
+        Press("down");                      // the arrows move the highlight again
+        Assert.Equal("• milk", Highlighted.Split('\n')[0]);
+        Press("esc");                       // back to the list
+        Assert.False(Reader.IsReading);
     }
 
     [Fact]
