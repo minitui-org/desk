@@ -422,7 +422,7 @@ Every key goes to the foreground app except the prefix, `Ctrl+Space` by default,
 | `F1` | Help |
 | `Esc`, or the prefix again | Close, sending nothing |
 
-Apart from `Tab`, each of these closes the list. A footer in the list shows the keys that fit, each key bold in the title color and what it does as text, and help lists them all. A prefix configured to one of these keys stays the prefix, and that command has no key. Pastes go to the app, wrapped by §11.3.
+Apart from `Tab`, each of these closes the list. A footer below a rule at the foot of the list shows the keys that fit, each key bold in the title color and what it does as text, and help lists them all. A prefix configured to one of these keys stays the prefix, and that command has no key. Pastes go to the app, wrapped by §11.3.
 
 The mouse goes to the app when it asked for mouse events, with no shell interpretation. Clicks on the status line open the switcher. The shell uses `WithMouse` and `WithHover`, since a hosted app may ask for any-motion events. Focus reporting (mode 1004) is sent to apps that enabled it when they're switched to and from.
 

@@ -199,6 +199,16 @@ public sealed partial class ShellTests : IDisposable
     }
 
     [Fact]
+    public void A_rule_joined_to_the_frame_parts_the_rows_from_the_footer()
+    {
+        Start();
+        Until(() => Shell.Foreground is not null);
+        Harness.Press("ctrl+space");
+        var y = Array.FindIndex(Harness.Lines, l => l.Contains("F1 help", StringComparison.Ordinal));
+        Assert.Matches(@"^\s*├─+┤\s*$", Harness.Lines[y - 1]);
+    }
+
+    [Fact]
     public void On_a_narrow_screen_the_footer_drops_keys_but_keeps_help()
     {
         Start(width: 44);

@@ -53,11 +53,11 @@ internal sealed class AppListOverlay : Overlay
     /// <summary>The launcher or the switcher, where the shell's commands work (spec §12.3).</summary>
     internal bool TakesShellCommands { get; init; }
 
-    // The filter line, its divider, the rows and the footer
+    // The filter line, its divider, the rows, a rule and the footer
     public override Rect Placement(Rect screen)
     {
         var rows = Math.Clamp(_rows.Length, 1, MaxRows);
-        return Centered(screen, Math.Max(64, screen.Width * 60 / 100), rows + FooterRows + 4);
+        return Centered(screen, Math.Max(64, screen.Width * 60 / 100), rows + FooterRows + 5);
     }
 
     public override bool HandleKey(ConsoleKeyInfo key)
@@ -97,23 +97,35 @@ internal sealed class AppListOverlay : Overlay
         if (area.IsEmpty) return;
 
         var theme = Theme.Current;
-        var footer = Math.Clamp(area.Height - 3, 0, FooterRows);
+        // The footer only once the filter line, its divider and a row fit, and a rule above it so it isn't read as rows
+        var footer = Math.Clamp(area.Height - 4, 0, FooterRows);
+        var rule = footer > 0 ? 1 : 0;
         DrawFooter(buf, new Rect(area.X, area.Bottom - footer, area.Width, footer), theme);
+        if (rule > 0) DrawRule(buf, area.X - 1, area.Bottom - footer - 1, area.Width + 2, theme);
 
         // Over the frame's column of padding each side, so the rows line up with the footer and the divider meets the border
-        var list = new Rect(area.X - 1, area.Y, area.Width + 2, area.Height - footer);
+        var list = new Rect(area.X - 1, area.Y, area.Width + 2, area.Height - footer - rule);
         Widget.FilterList(_list)
             .Placeholder("Type to filter")
             .Empty(_rows.Length == 0 ? _empty : "Nothing matches")
             .Focused(ctx.Focused)
             .Draw(buf, list);
-        if (list.Height >= 2)
-        {
-            // Joined to the frame's sides, as the palette's is
-            buf.SetString(list.X - 1, list.Y + 1, "├", theme.Border.Patch(theme.ModalBorder), 1);
-            buf.SetString(list.Right, list.Y + 1, "┤", theme.Border.Patch(theme.ModalBorder), 1);
-        }
+        if (list.Height >= 2) Join(buf, list.X, list.Y + 1, list.Width, theme);
         _rowsArea = list with { Y = list.Y + 2, Height = Math.Max(0, list.Height - 2) };
+    }
+
+    // A line as the filter list's divider, across the frame's padding
+    private static void DrawRule(CellBuffer buf, int x, int y, int width, Theme theme)
+    {
+        buf.SetString(x, y, new string('─', width), theme.Border, width);
+        Join(buf, x, y, width, theme);
+    }
+
+    // Joined to the frame's sides, as the palette's is
+    private static void Join(CellBuffer buf, int x, int y, int width, Theme theme)
+    {
+        buf.SetString(x - 1, y, "├", theme.Border.Patch(theme.ModalBorder), 1);
+        buf.SetString(x + width, y, "┤", theme.Border.Patch(theme.ModalBorder), 1);
     }
 
     // Each key goes on the first row with room for it, and what doesn't fit is left to the help. An item is the key,
