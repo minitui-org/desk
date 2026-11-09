@@ -211,7 +211,7 @@ public sealed class EndToEndTests : IDisposable
     {
         Seed("Shopping", "");
         var desk = InDesk();
-        Until(() => Rows(desk)[^1].StartsWith(" Notes: Shopping ", StringComparison.Ordinal),
+        Until(() => Rows(desk)[^1].Contains(" 2 Notes: Shopping ", StringComparison.Ordinal),
             () => Rows(desk)[^1]);
     }
 

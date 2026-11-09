@@ -22,6 +22,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     private static readonly KeyBinding HelpKey = KeyBinding.Parse("f1");
 
     private readonly List<HostedApp> _apps = [];     // positions, for 1-9
+    private readonly List<(int Start, int End, HostedApp App)> _statusApps = []; // where each app is on the status line
     private readonly List<HostedApp> _recent = [];   // most recently used first
     private readonly List<VtTerminal> _closing = [];
     private readonly List<Notification> _notifications = []; // oldest first
@@ -123,18 +124,57 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         if (Unread is > 0 and var unread) right.Add(new Span(unread.ToString(CultureInfo.InvariantCulture) + " new  ", default));
         if (_doNotDisturb) right.Add(new Span("DND  ", Theme.Current.TextMuted));
         right.Add(new Span(Now().ToString("HH:mm", CultureInfo.InvariantCulture), default));
+        var rightLine = new Line(right);
 
-        new StatusBarBuilder().Left(StatusText()).Right(new Line(right)).Draw(buf, row);
+        // The bar's own padding, the right side and the gap before it
+        var room = row.Width - 2 - (rightLine.Width > 0 ? rightLine.Width + 1 : 0);
+        _statusApps.Clear();
+        var left = StatusMessage() is { } message ? new Line(message) : AppsLine(row.X + 1, room);
+        new StatusBarBuilder().Left(left).Right(rightLine).Draw(buf, row);
     }
 
-    private string StatusText()
+    // What the status line says in place of the apps, while something needs saying
+    private string? StatusMessage()
     {
         if (_quitting) return "Closing apps...";
         if (_quitWaiting && WaitingToQuit().FirstOrDefault() is { } waiting) return $"Waiting for {OneLine(waiting.Name)}, Ctrl+Q again to force";
         if (_foreground is not { } app) return "No apps";
         if (app.Failure is { } failure) return $"{app.Name}: {failure}  r restart  c close";
         if (app.QuitAsked) return $"Asked {OneLine(app.Name)} to quit, Ctrl+X again to force";
-        return app.Title is { Length: > 0 } title ? $"{app.Name}: {OneLine(title)}" : app.Name;
+        return null;
+    }
+
+    // Each app by its number for 1-9, the current one highlighted with its title. The title is cut to fit the others,
+    // and when even their names don't fit, only the current app shows.
+    private Line AppsLine(int x, int room)
+    {
+        var current = _foreground!;
+        var labels = _apps.Select((app, i) => (i < 9 ? $"{i + 1} " : "") + OneLine(app.Name)).ToArray();
+        var at = _apps.IndexOf(current);
+        var title = current.Title is { Length: > 0 } t ? ": " + OneLine(t) : "";
+        var names = labels.Sum(l => UnicodeWidth.Of(l) + 2);
+        if (names > room)
+        {
+            labels = [labels[at]];
+            at = 0;
+            names = UnicodeWidth.Of(labels[0]) + 2;
+        }
+        if (title.Length > 0)
+        {
+            var width = room - names;
+            title = width >= 4 ? UnicodeWidth.Truncate(title, width) : "";
+        }
+
+        var spans = new List<Span>();
+        var theme = Theme.Current;
+        for (var i = 0; i < labels.Length; i++)
+        {
+            var text = " " + labels[i] + (i == at ? title : "") + " ";
+            spans.Add(new Span(text, i == at ? theme.Selection : default));
+            if (labels.Length == _apps.Count && i != at) _statusApps.Add((x, x + UnicodeWidth.Of(text), _apps[i]));
+            x += UnicodeWidth.Of(text);
+        }
+        return new Line(spans);
     }
 
     // ---- Input ----
@@ -214,7 +254,9 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         var onStatus = mouse.Y >= _pane.Bottom;
         if (onStatus && mouse.Action == MouseAction.Press)
         {
-            ShowSwitcher();
+            // Another app's name switches to it, and anywhere else opens the switcher
+            if (mouse.Button == MouseButton.Left && _statusApps.FirstOrDefault(a => mouse.X >= a.Start && mouse.X < a.End) is { App: { } clicked }) ChooseApp(clicked);
+            else ShowSwitcher();
             return true;
         }
 
