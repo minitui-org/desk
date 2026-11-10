@@ -202,6 +202,10 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
             return true;
         }
 
+        // The next or the previous app, in the status line's order, wrapping. With one app the keys are still Desk's.
+        if (config.NextApp is { } next && next.Matches(key)) return Cycle(1);
+        if (config.PreviousApp is { } previous && previous.Matches(key)) return Cycle(-1);
+
         if (_foreground is not { } app) return true;
         if (app.Failure is not null)
         {
@@ -210,6 +214,14 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
             return true;
         }
         app.Terminal.HandleKey(key);
+        return true;
+    }
+
+    private bool Cycle(int direction)
+    {
+        if (_foreground is not { } current || _apps.Count < 2) return true;
+        var index = _apps.IndexOf(current) + direction;
+        ChooseApp(_apps[(index + _apps.Count) % _apps.Count]);
         return true;
     }
 
@@ -339,7 +351,9 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     {
         var prefix = config.Prefix.ToString();
         _ = App.Overlays.ShowMessageAsync("Keys", Text.From($"""
-            Every key goes to the app, except {prefix}, which opens the launcher.
+            Every key goes to the app, except {prefix}, which opens the launcher,
+            and {Named(config.PreviousApp)} and {Named(config.NextApp)}, which go to the previous and the next
+            running app, in the status line's order.
             In the launcher and the switcher:
 
             Tab         Swap between them
@@ -354,6 +368,8 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
             Esc         Close, as {prefix} does
             """));
     }
+
+    private static string Named(KeyBinding? key) => key?.ToString() ?? "(no key)";
 
     private void AskToQuit()
     {

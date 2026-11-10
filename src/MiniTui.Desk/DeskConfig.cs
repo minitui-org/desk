@@ -21,6 +21,8 @@ internal sealed record AppEntry
 internal sealed record ConfigFile
 {
     public string? Prefix { get; init; }
+    public string? NextApp { get; init; }
+    public string? PreviousApp { get; init; }
     public bool? DoNotDisturb { get; init; }
 }
 
@@ -46,6 +48,10 @@ internal sealed record DeskConfig
         (Prefix.Modifiers & ConsoleModifiers.Shift) != 0,
         (Prefix.Modifiers & ConsoleModifiers.Alt) != 0,
         (Prefix.Modifiers & ConsoleModifiers.Control) != 0);
+
+    /// <summary>The keys that go to the next and the previous running app, in the status line's order, or null for none.</summary>
+    public KeyBinding? NextApp { get; init; } = KeyBinding.Parse("alt+l");
+    public KeyBinding? PreviousApp { get; init; } = KeyBinding.Parse("alt+h");
 
     public bool DoNotDisturb { get; init; } = true;
     public IReadOnlyList<AppEntry> Apps { get; init; } = [];
@@ -77,15 +83,17 @@ internal sealed record DeskConfig
 
         if (Read(Path.Combine(directory, "config.json"), ConfigJson.Default.ConfigFile, errors) is { } file)
         {
-            var prefix = config.Prefix;
+            var key = file.Prefix;
             try
             {
-                if (file.Prefix is { } name) prefix = KeyBinding.Parse(name);
-                config = config with { Prefix = prefix, DoNotDisturb = file.DoNotDisturb ?? config.DoNotDisturb };
+                var prefix = key is null ? config.Prefix : KeyBinding.Parse(key);
+                var next = Key(key = file.NextApp, config.NextApp);
+                var previous = Key(key = file.PreviousApp, config.PreviousApp);
+                config = config with { Prefix = prefix, NextApp = next, PreviousApp = previous, DoNotDisturb = file.DoNotDisturb ?? config.DoNotDisturb };
             }
             catch (FormatException)
             {
-                errors.Add($"config.json ignored: \"{file.Prefix}\" isn't a key");
+                errors.Add($"config.json ignored: \"{key}\" isn't a key");
             }
         }
 
@@ -125,6 +133,10 @@ internal sealed record DeskConfig
             Height = height,
         };
     }
+
+    // A key from config.json: left out it's the default, and "" is no key
+    private static KeyBinding? Key(string? name, KeyBinding? fallback) =>
+        name is null ? fallback : name.Trim().Length == 0 ? null : KeyBinding.Parse(name);
 
     private static T? Read<T>(string path, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type, List<string> errors) where T : class
     {

@@ -10,17 +10,19 @@ row of status, and one key taken from the app. It needs nothing but the .NET 10 
 dotnet run --project src/MiniTui.Desk
 ```
 
-Every key goes to the app except `Ctrl+Space`, which opens the launcher. Type to filter and press `Enter` to start an
+Every key goes to the app except `Ctrl+Space`, which opens the launcher, and `Alt+H` and `Alt+L`, which go to the
+previous and the next running app, in the order the status line lists them. In the launcher, type to filter and press `Enter` to start an
 app, `Tab` swaps to the list of running apps, and `Esc` closes. A footer shows the commands: `Ctrl+X` closes the app,
 `Ctrl+Q` quits, and `F1` lists the rest.
 
-Add apps to `~/.config/tuidesk/apps.json`, and set the prefix or turn Do Not Disturb off in `config.json`:
+Add apps to `~/.config/tuidesk/apps.json`, and set the keys or turn Do Not Disturb off in `config.json`. Set `nextApp` or
+`previousApp` to `""` to give that key back to the apps:
 
 ```json
 [{ "id": "k9s", "name": "Kubernetes", "command": "k9s", "args": [], "cwd": "~", "env": {} }]
 ```
 ```json
-{ "prefix": "ctrl+space", "doNotDisturb": true }
+{ "prefix": "ctrl+space", "nextApp": "alt+l", "previousApp": "alt+h", "doNotDisturb": true }
 ```
 
 Notes is the first app made for Desk: Markdown notes in plain files, saved as you type. Run it on its own, or add it

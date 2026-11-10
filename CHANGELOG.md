@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `Alt+L` and `Alt+H` go to the next and the previous running app, in the status line's order and around its ends, without opening the launcher. Apps inside Desk no longer get these two keys; `nextApp` and `previousApp` in `config.json` change them, or `""` turns one off. Help lists them.
 - The status line lists the running apps by the number `1`–`9` picks them with, the current one highlighted with its title, so you can see what's open and which number is which. The current app's title is cut to fit the others, and on a screen too narrow for their names only the current app shows. A click on another app's name switches to it.
 - Reader (`tuireader`, spec §13.10), the third app made for Desk: it reads the Markdown and text files of a folder where they are, with Markdown formatted, tables in columns, to the pane's full width. One block is highlighted, `F7` shows a caret for selecting text with the keyboard, and `Ctrl+N` sends it to Notes, quoted under a note named after the file, with where it came from and room to write. Inside Desk that's a `launch` of the `notes` entry; outside it Reader runs `tuinotes` in the same terminal and comes back after. Reader remembers where you were in each file.
 - `tuinotes --append <name> <text>` adds text to the end of a note, making it if needed, and opens it there to write. Reader uses it.
