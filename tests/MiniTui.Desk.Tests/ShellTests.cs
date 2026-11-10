@@ -634,11 +634,26 @@ public sealed partial class ShellTests : IDisposable
         Start(config: WithApps(entry) with { CloseTimeout = TimeSpan.FromMilliseconds(100) });
         Until(() => Shell.Foreground is not null);
         Launch("two");
-        Thread.Sleep(100);
+        Until(() => Shell.Foreground?.Name == "two", "the app");
+        Thread.Sleep(100); // for the trap to be set
         var pid = Shell.Foreground!.Terminal.Pid;
 
         Harness.Press("ctrl+space ctrl+x");
-        Until(() => !File.Exists($"/proc/{pid}/cmdline") || File.ReadAllText($"/proc/{pid}/cmdline").Length == 0, "the kill");
+        Until(() => Gone(pid), "the kill");
+    }
+
+    // Whether a process has ended: no /proc entry, or an empty one while it waits to be reaped
+    private static bool Gone(int pid)
+    {
+        try
+        {
+            return File.ReadAllText($"/proc/{pid}/cmdline").Length == 0;
+        }
+        catch (IOException)
+        {
+            // It ended between opening the file and reading it, or was never there
+            return true;
+        }
     }
 
     [Fact]

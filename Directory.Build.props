@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- The MiniTui package every project builds against. To try an unreleased one, pack it to a folder and pass
+         -p:MiniTuiVersion=<version> -p:RestoreAdditionalProjectSources=<folder>. -->
+    <MiniTuiVersion Condition="'$(MiniTuiVersion)' == ''">2.5.0</MiniTuiVersion>
+  </PropertyGroup>
+</Project>

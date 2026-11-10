@@ -78,7 +78,7 @@ public sealed class ScreenTests : IDisposable
     {
         Seed("Read the notes");
         Start();
-        Type("water");
+        Type("/water");
         Press("ctrl+n");
         Assert.Contains("New task", Screen, StringComparison.Ordinal);
         Type(" the plants");
@@ -156,14 +156,46 @@ public sealed class ScreenTests : IDisposable
     }
 
     [Fact]
-    public void Typing_filters()
+    public void Slash_then_typing_filters()
     {
         Seed("Buy milk", "Call the dentist", "Buy eggs");
         Start();
-        Type("buy");
+        Assert.Contains("/ to filter", Screen, StringComparison.Ordinal);
+        Type("/buy");
         Assert.Equal(["Buy eggs", "Buy milk"], Tasks.Showing.Order());
         Press("esc");
         Assert.Equal(3, Tasks.Showing.Count());
+    }
+
+    [Fact]
+    public void J_and_k_move_and_letters_do_not_filter()
+    {
+        Seed("Buy milk", "Call the dentist", "Buy eggs");
+        Start();
+        var first = Tasks.Selected?.Title;
+        Type("j");
+        Assert.NotEqual(first, Tasks.Selected?.Title);
+        Type("k");
+        Assert.Equal(first, Tasks.Selected?.Title);
+        Type("buy");
+        Assert.Equal(3, Tasks.Showing.Count());
+    }
+
+    [Fact]
+    public void Enter_keeps_the_filter_and_j_moves_among_the_matches_and_enter_then_edits()
+    {
+        Seed("Buy milk", "Call the dentist", "Buy eggs");
+        Start();
+        Type("/buy");
+        Press("enter");
+        Assert.False(Harness.App.Overlays.Any);
+        Assert.Equal(2, Tasks.Showing.Count());
+        var first = Tasks.Selected?.Title;
+        Type("j");
+        Assert.NotEqual(first, Tasks.Selected?.Title);
+        Assert.Equal(2, Tasks.Showing.Count());
+        Press("enter");
+        Assert.True(Harness.App.Overlays.Any); // the edit dialog
     }
 
     [Fact]

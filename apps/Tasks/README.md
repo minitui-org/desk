@@ -26,8 +26,8 @@ with `Done · Nov 6` on the right.
 
 | Key | Does |
 |---|---|
-| `↑` `↓` `PgUp` `PgDn` `Home` `End` | Select a task |
-| Typing | Filter. `Esc` clears the filter |
+| `↑` `↓` `j` `k` `PgUp` `PgDn` `Home` `End` | Select a task |
+| `/`, then typing | Filter. `Enter` keeps the filter and `Esc` clears it, and either gives the keys back to the list |
 | Click, double-click | Select a task; edit it |
 | `Ctrl+N` | New task, starting from the filter if you typed one |
 | `Enter` | Edit the task's text, with its priority and tags |

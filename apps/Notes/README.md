@@ -14,16 +14,16 @@ text in it, your text goes in a new note, `<name> (conflict)`, rather than over 
 
 | Key | Where | Does |
 |---|---|---|
-| `↑` `↓` `PgUp` `PgDn` `Home` `End` | List | Select a note, which shows in the editor |
-| Typing | List | Filter by name, opening the best match. `Esc` clears the filter |
+| `↑` `↓` `j` `k` `PgUp` `PgDn` `Home` `End` | List | Select a note, which shows in the editor |
+| `/`, then typing | List | Filter by name, opening the best match. `Enter` keeps the filter and `Esc` clears it, and either gives the keys back to the list |
 | Click, double-click | List | Open a note; edit it |
-| `Enter`, `Tab` | List | Edit the selected note |
+| `Enter`, `Tab`, `l` | List | Edit the selected note |
 | `Esc` | Editor | Back to the list |
 | `Tab`, `Shift+Tab` | Editor | Indent and outdent the line, or the selected lines |
 | `Ctrl+N` | Both | New note, named from the filter if you typed one |
 | `F2` | Both | Rename the selected note |
 | `Delete` | List | Delete the selected note, after asking |
-| `F1` | Both | Show the keys (`?` is typed here) |
+| `F1`, or `?` in the list | Both | Show the keys |
 | `Ctrl+Q` | Both | Quit |
 
 The editor is MiniTui's `TextArea`: `Ctrl+Z` and `Ctrl+Y` undo and redo, `Ctrl+F` finds, `Shift` with the arrows
