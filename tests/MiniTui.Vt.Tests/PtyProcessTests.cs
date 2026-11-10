@@ -54,7 +54,11 @@ public class PtyProcessTests
     {
         using var pty = new PtyHarness(new VtStartInfo("bash") { Args = ["--norc", "--noprofile", "-i"] });
 
+        // A ^Z flushes input the shell hasn't read, so the command line has to be read first: the prompt, then
+        // readline's echo of it
+        pty.WaitForOutput("$ ");
         pty.Send("sleep 30\n");
+        pty.WaitForOutput("$ sleep 30\n");
         // Until sleep is in the foreground, a ^Z only reaches bash, which ignores it
         pty.SendUntil("\x1a", "Stopped");
         pty.Send("kill %1; exit\n");
