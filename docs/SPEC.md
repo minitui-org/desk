@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Phase 3 or 4 is next, and neither is specced. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) is specced and comes next, before Phase 4. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -125,6 +125,10 @@ Each phase gets its own spec section before implementation begins, with acceptan
 - Two or three first-party apps, for example notes, tasks and a reader. Each lists the framework gaps it hit, and each gap becomes a MiniTui issue.
 - Exit: native apps show their name and status in the shell and route notifications through it, and they behave identically when run outside Desk.
 
+**Phase 2.5 — Two panes**
+- A second app beside or below the first, and no more than two. Specced in §14.
+- Exit: Ben uses Reader beside Notes, and an editor over a shell, in a working session.
+
 **Phase 3 — Bare console (optional)**
 - A DRM/KMS `ITerminalBackend` with font rasterization (FreeType or a prebuilt bitmap font atlas).
 - A libinput-based input source, plus libseat/logind for session and VT switching.
@@ -240,7 +244,7 @@ Accepted by Ben on 2026-11-05, as recommended.
 | 3 | Config format | JSON (System.Text.Json, no extra dependency) |
 | 4 | Prefix key default | `Ctrl+Space` (avoids tmux's `Ctrl+B` clash) |
 | 5 | Desk versioning | 0.x, pinned to MiniTui ≥ 2.1; follows the framework's major version |
-| 6 | Splits in v1? | No; revisit after Phase 1 use (`Widget.Split` exists if wanted) |
+| 6 | Splits in v1? | No; revisit after Phase 1 use (`Widget.Split` exists if wanted). Revisited on 2026-11-09 after Phase 2's working session: two panes, no more (§14) |
 
 ## 10. Handoff notes for Claude Code
 
@@ -734,3 +738,101 @@ The editor is MiniTui's `TextArea`, with its own keys: undo, find, selection and
 - **Title:** the open file's name, or the folder when none is open.
 - **Theme** as in Notes (§13.8).
 - **Out of scope here:** finding text in the page, following links, images, syntax highlighting in code blocks, and other formats (HTML, PDF, EPUB).
+
+## 14. Two panes (Phase 2.5)
+
+### 14.1 Purpose
+Some work takes two apps at once: quoting from Reader into Notes, an editor with a shell, a build or `k9s` beside what's being worked on. `Alt+H` and `Alt+L` made going between apps cheap, but going between isn't seeing both.
+
+Desk stays focus-first (§3, §4), so this is one split and not a window manager: **two apps at most, side by side or stacked, with no nesting, no third pane and no layouts to manage.** tmux and zellij do the rest well, and run inside Desk.
+
+Nothing changes for someone who never splits.
+
+### 14.2 Decisions
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Which arrangements? | **Asked: both, chosen each time.** Side by side keeps the full height for both; stacked suits wide output under an editor |
+| 2 | How is a second app put in a pane? | **Asked: from the launcher or switcher row.** `Enter` opens the selected app in the current pane, as before; `Ctrl+R` opens it to the right and `Ctrl+B` below. No key is taken from hosted apps |
+| 3 | How does focus move between the panes? | **Asked: a new key, `Alt+J`**, and a click. `Alt+H` and `Alt+L` keep their meaning, in the focused pane. One more key is taken from hosted apps, and it can be changed or turned off |
+| 4 | An app chosen that's already showing in the other pane? | **Default, not asked: focus moves to it.** An app has one screen, so it can't show twice. `Alt+H` and `Alt+L` skip it |
+| 5 | When one of the two apps closes or ends? | **Default, not asked: the other fills the screen.** An empty pane would have to be managed |
+| 6 | Sizes? | **Default, not asked: equal halves.** Resizing is out of scope (§14.9) |
+| 7 | A `launch` from a native app, while split? | **Default, not asked: it opens in the other pane**, so Reader stays on screen while Notes takes the passage (§13.10) |
+
+### 14.3 The screen
+- **Side by side:** a column of `│` in the border style between the panes. The first pane, on the left, gets the odd column.
+- **Stacked:** a row of `─` between them. The first pane, on top, gets the odd row.
+- **The status line** highlights the focused app as before, in the selection style, and the app in the other pane in the unfocused selection style. Only the focused app shows its title.
+- **The cursor** shows only in the focused pane.
+- **The lists, dialogs and toasts** are placed on the whole screen, as before.
+- **Too small:** side by side needs 20 columns a pane, and stacked 5 rows a pane. Below that only the focused pane shows, at full size, and the other returns when there's room. The status line still marks both.
+
+### 14.4 Keys
+
+In the launcher and the switcher (§12.3), on the selected row:
+
+| Key | Action |
+|---|---|
+| `Enter` | Open it in the focused pane, as before. If it's showing in the other pane, focus moves there |
+| `Ctrl+R` | Open it to the right: the focused app takes the left pane, this one the right, and it gets the focus |
+| `Ctrl+B` | Open it below, in the same way |
+| `Ctrl+O` | One pane: the focused app fills the screen, and the other keeps running out of sight |
+
+- `Ctrl+R` and `Ctrl+B` work with or without a split. With one, the app that was in the other pane goes out of sight, so they also change what's beside the focused app, and turn a split the other way.
+- On the focused app's own row in the switcher they do nothing: an app can't be beside itself. In the launcher every row starts a new instance, as before.
+- `1`–`9` and a click on a name in the status line act as `Enter` does.
+- The footer and help list the three new keys. A prefix set to one of them stays the prefix, as in §12.3.
+
+Outside the lists:
+
+| Key | Action |
+|---|---|
+| `Alt+J` | Focus the other pane. With no split it does nothing, and the app still doesn't get it |
+| `Alt+L`, `Alt+H` | The next and the previous app, in the focused pane, skipping the app in the other pane. With only the two running they do nothing |
+
+`otherPane` in `config.json` sets `Alt+J`'s key, or `""` turns it off (§12.7).
+
+### 14.5 Apps and panes
+- **Size:** an app is the size of the pane it's in, and an app out of sight is the size of the whole screen, less the status line. An app is resized as it goes into or out of a pane, and when the terminal is.
+- **Close (`Ctrl+X`)** closes the focused app (§12.5, §13.4), and the other one then fills the screen.
+- **An app that exits** in either pane ends the split in the same way. If the focused one ended, focus goes to the other.
+- **An app that fails** keeps its last screen in its pane (§12.5). `r` and `c` work when it has the focus, and the status line says how it ended then.
+- **The last app closing** opens the launcher, as before.
+- **Quit** is unchanged. While waiting on a native app (§13.4), Desk brings it to the focused pane.
+- The split isn't kept when Desk exits.
+
+### 14.6 Mouse, clipboard and notifications
+- **Mouse:** events go to the pane under the pointer, by that app's mouse modes. A press in the unfocused pane focuses it, and is passed on. The wheel doesn't change focus. A drag stays with the pane it started in. A press on the divider does nothing.
+- **Clipboard:** only the focused app's writes are forwarded (§11.4, §12.3).
+- **Bell:** a bell from either showing app does nothing, as from the foreground app before. An app out of sight still "wants attention".
+- **A failure** in either showing app adds no notification: it's on screen.
+
+### 14.7 The protocol
+No new messages.
+- **`focus`:** true for the app in the focused pane and false for every other, including the one showing beside it. Focus changing between panes sends both.
+- **`launch`** is honored from the focused app only, as before. With a split, the new app takes the other pane and gets the focus; without one, it takes the screen as before.
+- **`notify`, `title`, `quitRequest`** are unchanged.
+
+### 14.8 Sub-phases and acceptance
+One branch and PR each. No MiniTui core change is expected: `TerminalView` already draws into any area.
+
+**14a — Panes and keys.** §14.3 to §14.5.
+- [ ] `Ctrl+R` and `Ctrl+B` put the selected app beside or below the focused one, from both lists, with and without a split, and `Ctrl+O` returns to one pane.
+- [ ] Each app has its pane's size (`stty size` in each), and its full size again once out of sight.
+- [ ] `Alt+J` moves focus, keys go only to the focused app, and `Alt+H` `Alt+L` skip the other pane's app.
+- [ ] Choosing the other pane's app moves focus. Closing or ending either app leaves the other full screen.
+- [ ] A screen too small for two panes shows the focused one, and both return when it grows.
+- [ ] The status line marks both, and the footer and help list the keys.
+
+**14b — Mouse and the protocol.** §14.6 and §14.7.
+- [ ] A press focuses the pane under it and reaches its app with the pane's own coordinates; the wheel and a drag follow §14.6.
+- [ ] Only the focused app's clipboard writes are forwarded.
+- [ ] `focus` follows the focused pane, with a real client in each pane.
+- [ ] A `launch` from Reader opens Notes in the other pane, and Reader stays on screen.
+
+**Phase exit:** Ben uses Reader beside Notes, and an editor over a shell, in a working session.
+
+### 14.9 Out of scope
+More than two panes, nesting, resizing or dragging the divider, swapping the two sides, zooming one pane, remembering pairs of apps, restoring a split at startup, and one app showing in both panes.
+
