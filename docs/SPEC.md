@@ -408,7 +408,11 @@ examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 ### 12.3 Screen and keys
 The top rows are the foreground app, full width. The last row is the status line: the running apps, notification count, clock. Do Not Disturb shows as a muted marker. Each app shows its number for `1`–`9` and its name, and the current one is highlighted in the selection style with its title (OSC 0/2) after its name. The title is cut to leave room for the others, and if even their names don't fit, only the current app shows. A message (closing, waiting to quit, how an app ended, asked to quit) takes the apps' place while it applies.
 
-Every key goes to the foreground app except the prefix, `Ctrl+Space` by default, which opens the launcher (§12.4). In the launcher and the switcher, typing filters, so their commands aren't plain letters:
+Every key goes to the foreground app except three. The prefix, `Ctrl+Space` by default, opens the launcher (§12.4). `Alt+L` and `Alt+H` go to the next and the previous running app, in the status line's order and around its ends; with one app they do nothing, and the app still doesn't get them. They aren't taken while a list or a dialog is open.
+
+**Decision, asked:** switching through the prefix took two or three chords, which was too many for something done all day, so Desk takes two more keys from hosted apps. `Alt+H` and `Alt+L` were chosen over `Ctrl+PgUp`/`Ctrl+PgDn`, `Alt+,`/`Alt+.` and `Alt+PgUp`/`Alt+PgDn`: they're on the home row and match `h` and `l` in the apps. What's lost inside Desk is bash's `Alt+L` and any app's own use of the two, so both can be changed or turned off (§12.7). `Alt+[` and `Alt+]` were ruled out: `ESC [` starts every arrow and function key's sequence.
+
+In the launcher and the switcher, typing filters, so their commands aren't plain letters:
 
 | Key | Action |
 |---|---|
@@ -429,7 +433,7 @@ The mouse goes to the app when it asked for mouse events, with no shell interpre
 Only the foreground app's clipboard writes (§11.4) are forwarded, so a program out of sight can't replace what the user copied.
 
 ### 12.4 Switcher and launcher
-**Decision:** two lists, each with one job, both behind the prefix so that `Ctrl+Space` stays the only key taken from hosted apps. The prefix opens the launcher straight away, as starting an app is a main reason to press it, and `Tab` swaps it for the switcher.
+**Decision:** two lists, each with one job, both behind the prefix, so they take no key of their own from hosted apps. The prefix opens the launcher straight away, as starting an app is a main reason to press it, and `Tab` swaps it for the switcher.
 
 - **Launcher:** apps from `apps.json`, plus a shell. It always starts a new instance.
 - **Switcher:** running apps in most-recently-used order, with the previous app selected, so `Ctrl+Space`, `Tab`, `Enter` goes back to it. It can't start anything.
@@ -460,11 +464,12 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 `~/.config/tuidesk/config.json` and `apps.json` (`$XDG_CONFIG_HOME/tuidesk` when that's set). Both are optional, read at startup, and parsed with System.Text.Json source generation. A broken file doesn't stop Desk: it's ignored, with a notification saying why.
 
 ```json
-{ "prefix": "ctrl+space", "doNotDisturb": true }
+{ "prefix": "ctrl+space", "nextApp": "alt+l", "previousApp": "alt+h", "doNotDisturb": true }
 ```
 ```json
 [{ "id": "k9s", "name": "Kubernetes", "command": "k9s", "args": [], "cwd": "~", "env": {} }]
 ```
+`nextApp` and `previousApp` are the keys of §12.3. Set to `""`, there's no such key and the app gets it. A name that isn't a key is reported, and the whole of `config.json` is ignored.
 
 ### 12.8 Limits accepted for v1
 - **Cursor shape (DECSCUSR):** ignored, since `CellBuffer` can only place the cursor. A §7 candidate, with undercurl.
@@ -496,7 +501,7 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 **1d — The shell.** §12.3 to §12.7.
 - [x] Shell behaviour is tested with `TestBackend` and `ScriptedInputSource`.
 - [x] End-to-end tests run `tuidesk` itself inside a `VtTerminal`, hosting real children, covering the rest of this list.
-- [x] Every key but the prefix reaches the app, unchanged.
+- [x] Every key but the prefix reaches the app, unchanged. (Since then, also not `Alt+H` and `Alt+L`, §12.3.)
 - [x] A hosted app gets the full terminal minus one row, and follows a resize with nothing off-screen.
 - [x] Everything works without a mouse, and with no config.
 - [x] A crashed app keeps its screen and says how it ended.

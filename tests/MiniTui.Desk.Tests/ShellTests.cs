@@ -147,6 +147,60 @@ public sealed partial class ShellTests : IDisposable
     }
 
     [Fact]
+    public void Alt_l_and_alt_h_go_to_the_next_and_previous_app_and_wrap()
+    {
+        Start("printf first; exec cat", WithApps(Entry("two", "printf second; exec cat"), Entry("three", "printf third; exec cat")));
+        UntilShows("first");
+        Launch("two");
+        Launch("three");
+        UntilShows("third");
+
+        Harness.Press("alt+l"); // from the last, around to the first
+        Assert.Same(Shell.Apps[0], Shell.Foreground);
+        UntilShows("first");
+        Harness.Press("alt+l");
+        Assert.Equal("two", Shell.Foreground!.Name);
+        Harness.Press("alt+h alt+h");
+        Assert.Equal("three", Shell.Foreground!.Name);
+        Harness.Press("alt+h");
+        Assert.Equal("two", Shell.Foreground!.Name);
+        Assert.False(Harness.App.Overlays.Any);
+    }
+
+    [Fact]
+    public void The_apps_do_not_get_the_keys_that_cycle_unless_they_are_turned_off()
+    {
+        var output = _files.Path("out");
+        Start($"stty raw -echo; exec cat > '{output}'");
+        Thread.Sleep(100);
+        Harness.Press("alt+l alt+h b");
+        Until(() => File.Exists(output) && File.ReadAllText(output).Contains('b', StringComparison.Ordinal), "the keys");
+        Assert.Equal("b", File.ReadAllText(output)); // with one app there's nowhere to go, and the keys are still Desk's
+    }
+
+    [Fact]
+    public void With_no_key_to_cycle_the_app_gets_alt_l()
+    {
+        var output = _files.Path("out");
+        Start($"stty raw -echo; exec cat > '{output}'", new DeskConfig { NextApp = null, PreviousApp = null });
+        Thread.Sleep(100);
+        Harness.Press("alt+l b");
+        Until(() => File.Exists(output) && File.ReadAllText(output).Contains('b', StringComparison.Ordinal), "the keys");
+        Assert.Equal("\u001blb", File.ReadAllText(output));
+    }
+
+    [Fact]
+    public void In_the_launcher_alt_l_does_not_switch()
+    {
+        Start("printf first; exec cat", WithApps(Entry("two", "printf second; exec cat")));
+        UntilShows("first");
+        Launch("two");
+        UntilShows("second");
+        Harness.Press("ctrl+space alt+l esc");
+        Assert.Equal("two", Shell.Foreground!.Name);
+    }
+
+    [Fact]
     public void The_prefix_opens_the_launcher_and_again_closes_it_sending_nothing()
     {
         var output = _files.Path("out");
@@ -809,6 +863,24 @@ public sealed partial class ShellTests : IDisposable
         Assert.Contains("config.json ignored", Shell.Notifications[0].Text, StringComparison.Ordinal);
         Assert.Contains("apps.json ignored", Shell.Notifications[1].Text, StringComparison.Ordinal);
         Assert.True(Shell.DoNotDisturb);
+    }
+
+    [Fact]
+    public void The_keys_for_the_next_and_previous_app_can_be_set_or_turned_off()
+    {
+        Assert.Equal(KeyBinding.Parse("alt+l"), new DeskConfig().NextApp);
+        Assert.Equal(KeyBinding.Parse("alt+h"), new DeskConfig().PreviousApp);
+
+        File.WriteAllText(_files.Path("config.json"), """{ "nextApp": "ctrl+pgdn", "previousApp": "" }""");
+        var config = DeskConfig.Load(_files.Directory);
+        Assert.Empty(config.Errors);
+        Assert.Equal(KeyBinding.Parse("ctrl+pgdn"), config.NextApp);
+        Assert.Null(config.PreviousApp);
+
+        File.WriteAllText(_files.Path("config.json"), """{ "nextApp": "alt+nope" }""");
+        config = DeskConfig.Load(_files.Directory);
+        Assert.Contains("\"alt+nope\" isn't a key", Assert.Single(config.Errors), StringComparison.Ordinal);
+        Assert.Equal(KeyBinding.Parse("alt+l"), config.NextApp);
     }
 
     [Fact]
