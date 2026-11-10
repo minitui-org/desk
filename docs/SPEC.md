@@ -401,7 +401,7 @@ tests/MiniTui.Vt.Tests/
 tests/MiniTui.Desk.Tests/
 examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 ```
-- Both reference the `MiniTui` NuGet package (2.4.0 since Phase 2), not a source checkout.
+- Both reference the `MiniTui` NuGet package (2.5.0 since the lists got vim-style keys), not a source checkout. Its version is `MiniTuiVersion` in `Directory.Build.props`, which a build can override to try an unreleased one.
 - The build gate is MiniTui's: `-warnaserror`, xUnit, and CI on Ubuntu. Every PR updates `CHANGELOG.md`.
 - Nothing is published in Phase 1.
 
