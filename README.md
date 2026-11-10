@@ -11,18 +11,23 @@ dotnet run --project src/MiniTui.Desk
 ```
 
 Every key goes to the app except `Ctrl+Space`, which opens the launcher, and `Alt+H` and `Alt+L`, which go to the
-previous and the next running app, in the order the status line lists them. In the launcher, type to filter and press `Enter` to start an
+previous and the next running app, in the order the status line lists them. `Alt+J` goes to the other pane when two apps are
+showing. In the launcher, type to filter and press `Enter` to start an
 app, `Tab` swaps to the list of running apps, and `Esc` closes. A footer shows the commands: `Ctrl+X` closes the app,
 `Ctrl+Q` quits, and `F1` lists the rest.
 
-Add apps to `~/.config/tuidesk/apps.json`, and set the keys or turn Do Not Disturb off in `config.json`. Set `nextApp` or
-`previousApp` to `""` to give that key back to the apps:
+Two apps can show at once. In the launcher or the switcher, `Ctrl+R` opens the selected app in a pane to the right of
+the current one and `Ctrl+B` in a pane below it, where `Enter` opens it in the current pane. `Ctrl+O` goes back to one
+pane, and the other app keeps running. There are never more than two.
+
+Add apps to `~/.config/tuidesk/apps.json`, and set the keys or turn Do Not Disturb off in `config.json`. Set `nextApp`,
+`previousApp` or `otherPane` to `""` to give that key back to the apps:
 
 ```json
 [{ "id": "k9s", "name": "Kubernetes", "command": "k9s", "args": [], "cwd": "~", "env": {} }]
 ```
 ```json
-{ "prefix": "ctrl+space", "nextApp": "alt+l", "previousApp": "alt+h", "doNotDisturb": true }
+{ "prefix": "ctrl+space", "nextApp": "alt+l", "previousApp": "alt+h", "otherPane": "alt+j", "doNotDisturb": true }
 ```
 
 Notes is the first app made for Desk: Markdown notes in plain files, saved as you type. Run it on its own, or add it

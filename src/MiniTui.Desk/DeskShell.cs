@@ -6,7 +6,8 @@ using MiniTui.Vt;
 namespace MiniTui.Desk;
 
 /// <summary>
-/// The workspace (spec §12): one app on the screen, one row of status, and one key taken from the app, the prefix.
+/// The workspace (spec §12): one app on the screen, or two in panes (spec §14), one row of status, and a few keys
+/// taken from the app, the prefix first.
 /// Everything here runs on the UI thread, apart from the handlers that <see cref="Start"/> adds to a terminal. What
 /// native apps say over the protocol is in the other half of this class.
 /// </summary>
@@ -20,6 +21,11 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     private static readonly KeyBinding DoNotDisturbKey = KeyBinding.Parse("ctrl+d");
     private static readonly KeyBinding SendPrefixKey = KeyBinding.Parse("ctrl+s");
     private static readonly KeyBinding HelpKey = KeyBinding.Parse("f1");
+    private static readonly KeyBinding RightKey = KeyBinding.Parse("ctrl+r");
+    private static readonly KeyBinding BelowKey = KeyBinding.Parse("ctrl+b");
+    private static readonly KeyBinding OnePaneKey = KeyBinding.Parse("ctrl+o");
+    private const int MinPaneWidth = 20;
+    private const int MinPaneHeight = 5;
 
     private readonly List<HostedApp> _apps = [];     // positions, for 1-9
     private readonly List<(int Start, int End, HostedApp App)> _statusApps = []; // where each app is on the status line
@@ -27,8 +33,13 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     private readonly List<VtTerminal> _closing = [];
     private readonly List<Notification> _notifications = []; // oldest first
     private readonly Dictionary<string, int> _instances = []; // the last number given to each id
-    private volatile HostedApp? _foreground;
-    private Rect _pane;
+    private volatile HostedApp? _foreground; // the app with the focus
+    private volatile HostedApp? _other;      // the app in the other pane, while there are two (spec §14)
+    private bool _stacked;                   // the panes are one over the other, not side by side
+    private bool _focusSecond;               // the focused app is in the right or the lower pane
+    private Rect _pane;                      // everything but the status line
+    private Rect _focusedArea;               // where the focused app is drawn
+    private Rect _otherArea;                 // and the other, or empty when it isn't showing
     private bool _started;
     private bool _quitting;
     private bool _doNotDisturb = config.DoNotDisturb;
@@ -56,6 +67,10 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
 
     internal IReadOnlyList<HostedApp> Apps => _apps;
     internal HostedApp? Foreground => _foreground;
+
+    /// <summary>The app in the other pane, or null with one pane.</summary>
+    internal HostedApp? Other => _other;
+    internal bool Stacked => _stacked;
     internal IReadOnlyList<Notification> Notifications => _notifications;
     internal int Unread => _notifications.Count(n => !n.Read);
     internal bool DoNotDisturb => _doNotDisturb;
@@ -72,6 +87,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         _recent.Clear();
         _closing.Clear();
         _foreground = null;
+        _other = null;
         StopServer();
     }
 
@@ -90,23 +106,25 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     {
         ArgumentNullException.ThrowIfNull(buf);
         var pane = area with { Height = Math.Max(0, area.Height - 1) };
-        if (pane != _pane)
-        {
-            _pane = pane;
-            ResizeAll();
-        }
+        _pane = pane;
         if (!_started)
         {
             _started = true;
             StartFirstApp();
         }
+        Arrange();
 
         if (_foreground is { } app && !pane.IsEmpty)
         {
             new TerminalViewBuilder()
                 .Terminal(app.Terminal)
                 .Focused(app.Failure is null && !App.Overlays.Any)
-                .Draw(buf, pane);
+                .Draw(buf, _focusedArea);
+            if (_other is { } other && !_otherArea.IsEmpty)
+            {
+                new TerminalViewBuilder().Terminal(other.Terminal).Focused(false).Draw(buf, _otherArea);
+                DrawDivider(buf);
+            }
         }
         else if (_foreground is null && !_quitting && !pane.IsEmpty)
         {
@@ -115,6 +133,72 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
 
         if (area.Height > 0) DrawStatus(buf, new Rect(area.X, area.Bottom - 1, area.Width, 1));
     }
+
+    // ---- Panes (spec §14) ----
+
+    // The two panes, or null when the screen is too small for them: the first gets the odd column or row
+    private (Rect First, Rect Second)? Panes(bool stacked)
+    {
+        if (stacked)
+        {
+            var rows = _pane.Height - 1;
+            if (rows < 2 * MinPaneHeight) return null;
+            var top = (rows + 1) / 2;
+            return (_pane with { Height = top }, _pane with { Y = _pane.Y + top + 1, Height = rows - top });
+        }
+        var columns = _pane.Width - 1;
+        if (columns < 2 * MinPaneWidth) return null;
+        var left = (columns + 1) / 2;
+        return (_pane with { Width = left }, _pane with { X = _pane.X + left + 1, Width = columns - left });
+    }
+
+    // Where each app is drawn, and every app's size: its pane's, or the whole screen's when it's out of sight
+    private void Arrange()
+    {
+        _focusedArea = _pane;
+        _otherArea = default;
+        if (_other is not null && Panes(_stacked) is var (first, second))
+            (_focusedArea, _otherArea) = _focusSecond ? (second, first) : (first, second);
+        if (_pane.IsEmpty) return;
+
+        foreach (var app in _apps)
+        {
+            var area = ReferenceEquals(app, _foreground) ? _focusedArea : ReferenceEquals(app, _other) && !_otherArea.IsEmpty ? _otherArea : _pane;
+            app.Terminal.Resize(area.Width, area.Height);
+        }
+    }
+
+    private void DrawDivider(CellBuffer buf)
+    {
+        var border = Theme.Current.Border;
+        if (_stacked)
+        {
+            var y = Math.Max(_focusedArea.Y, _otherArea.Y) - 1;
+            buf.SetString(_pane.X, y, new string('─', _pane.Width), border, _pane.Width);
+            return;
+        }
+        var x = Math.Max(_focusedArea.X, _otherArea.X) - 1;
+        for (var y = _pane.Y; y < _pane.Bottom; y++) buf.SetString(x, y, "│", border, 1);
+    }
+
+    // The focused app keeps the first pane, and this one takes the second with the focus. Whatever was in the other
+    // pane goes out of sight.
+    private void Beside(HostedApp app, bool stacked)
+    {
+        if (_foreground is not { } first)
+        {
+            SwitchTo(app);
+            return;
+        }
+        if (ReferenceEquals(app, first)) return; // an app can't be beside itself
+        CancelQuitWait();
+        GiveFocus(app);
+        _other = first;
+        _stacked = stacked;
+        _focusSecond = true;
+    }
+
+    private void OnePane() => _other = null;
 
     // ---- Status ----
 
@@ -170,7 +254,10 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         for (var i = 0; i < labels.Length; i++)
         {
             var text = " " + labels[i] + (i == at ? title : "") + " ";
-            spans.Add(new Span(text, i == at ? theme.Selection : default));
+            var showing = labels.Length == _apps.Count && ReferenceEquals(_apps[i], _other);
+            // The other pane's app is bold and underlined: the unfocused selection can be the status bar's own color
+            if (showing) spans.AddRange([" ", new Span(labels[i], new Style().Bold().Underlined()), " "]);
+            else spans.Add(new Span(text, i == at ? theme.Selection : default));
             if (labels.Length == _apps.Count && i != at) _statusApps.Add((x, x + UnicodeWidth.Of(text), _apps[i]));
             x += UnicodeWidth.Of(text);
         }
@@ -205,6 +292,11 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         // The next or the previous app, in the status line's order, wrapping. With one app the keys are still Desk's.
         if (config.NextApp is { } next && next.Matches(key)) return Cycle(1);
         if (config.PreviousApp is { } previous && previous.Matches(key)) return Cycle(-1);
+        if (config.OtherPane is { } otherPane && otherPane.Matches(key))
+        {
+            if (_other is { } other) ChooseApp(other);
+            return true;
+        }
 
         if (_foreground is not { } app) return true;
         if (app.Failure is not null)
@@ -219,9 +311,11 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
 
     private bool Cycle(int direction)
     {
-        if (_foreground is not { } current || _apps.Count < 2) return true;
-        var index = _apps.IndexOf(current) + direction;
-        ChooseApp(_apps[(index + _apps.Count) % _apps.Count]);
+        // Skipping the app in the other pane, which Alt+J goes to
+        var apps = _apps.Where(a => !ReferenceEquals(a, _other)).ToList();
+        if (_foreground is not { } current || apps.Count < 2) return true;
+        var index = apps.IndexOf(current) + direction;
+        ChooseApp(apps[(index + apps.Count) % apps.Count]);
         return true;
     }
 
@@ -243,6 +337,15 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
                 if (_foreground is { } app) AskToClose(app);
             };
         }
+        if (RightKey.Matches(key) || BelowKey.Matches(key))
+        {
+            var below = BelowKey.Matches(key);
+            return () =>
+            {
+                if (list.SelectedRow is { } row) list.Beside?.Invoke(row, below);
+            };
+        }
+        if (OnePaneKey.Matches(key)) return OnePane;
         if (QuitKey.Matches(key)) return AskToQuit;
         if (NotificationsKey.Matches(key)) return ShowNotifications;
         if (DoNotDisturbKey.Matches(key)) return () => _doNotDisturb = !_doNotDisturb;
@@ -274,8 +377,17 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
 
         // A drag can leave the pane, and the app still needs to see where it goes and that it ended
         if (onStatus && mouse.Action is not (MouseAction.Drag or MouseAction.Release)) return true;
-        if (_foreground is { Failure: null } app && !_pane.IsEmpty)
-            app.Terminal.HandleMouse(mouse with { Y = Math.Min(mouse.Y, _pane.Bottom - 1) });
+        // The focused app's, in its pane's own coordinates
+        if (_foreground is { Failure: null } app && !_focusedArea.IsEmpty)
+        {
+            var dragging = mouse.Action is MouseAction.Drag or MouseAction.Release;
+            if (!dragging && !_focusedArea.Contains(mouse.X, mouse.Y)) return true;
+            app.Terminal.HandleMouse(mouse with
+            {
+                X = Math.Clamp(mouse.X, _focusedArea.X, _focusedArea.Right - 1) - _focusedArea.X,
+                Y = Math.Clamp(mouse.Y, _focusedArea.Y, _focusedArea.Bottom - 1) - _focusedArea.Y,
+            });
+        }
         return true;
     }
 
@@ -297,32 +409,53 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
             a.Name,
             a.Failure?.ToString() ?? (a.Title is { Length: > 0 } title ? OneLine(title) : null),
             (_apps.IndexOf(a) + 1).ToString(CultureInfo.InvariantCulture)));
-        ShowList(" Switch ", rows, selected: 1, "Tab launcher", ShowLauncher, i =>
-        {
-            // The list doesn't follow apps that end while it's open
-            if (_apps.Contains(apps[i])) ChooseApp(apps[i]);
-        });
+        // The list doesn't follow apps that end while it's open
+        ShowList(
+            " Switch ",
+            rows,
+            selected: 1,
+            "Tab launcher",
+            ShowLauncher,
+            i =>
+            {
+                if (_apps.Contains(apps[i])) ChooseApp(apps[i]);
+            },
+            (i, below) =>
+            {
+                if (_apps.Contains(apps[i])) Beside(apps[i], below);
+            });
     }
 
     private void ShowLauncher()
     {
         AppEntry[] entries = [.. config.Apps, new AppEntry { Id = ShellId, Name = "Shell", Command = config.ShellCommand }];
-        ShowList(" Launch ", entries.Select(e => new AppListRow(e.DisplayName, e.Command)), selected: 0, "Tab switcher", ShowSwitcher, i =>
-        {
-            CancelQuitWait();
-            Launch(entries[i]);
-        });
+        ShowList(
+            " Launch ",
+            entries.Select(e => new AppListRow(e.DisplayName, e.Command)),
+            selected: 0,
+            "Tab switcher",
+            ShowSwitcher,
+            i =>
+            {
+                CancelQuitWait();
+                Launch(entries[i]);
+            },
+            (i, below) =>
+            {
+                CancelQuitWait();
+                Launch(entries[i], beside: true, below);
+            });
     }
 
-    private void ShowList(string title, IEnumerable<AppListRow> rows, int selected, string swapHint, Action swap, Action<int> choose)
+    private void ShowList(string title, IEnumerable<AppListRow> rows, int selected, string swapHint, Action swap, Action<int> choose, Action<int, bool> beside)
     {
         if (App.Overlays.Top is AppListOverlay open) App.Overlays.Close(open);
         string[] footer =
         [
-            "F1 help", swapHint, "Ctrl+X close", "Ctrl+Q quit", "Ctrl+N notifications", "Ctrl+D DND",
-            $"Ctrl+S send {config.Prefix}", "1-9 go to",
+            "F1 help", swapHint, "Ctrl+X close", "Ctrl+R right", "Ctrl+B below", "Ctrl+O one pane", "Ctrl+Q quit",
+            "Ctrl+N notifications", "Ctrl+D DND", $"Ctrl+S send {config.Prefix}", "1-9 go to",
         ];
-        App.Overlays.Show(new AppListOverlay(title, rows, selected, choose, swap, footer) { TakesShellCommands = true });
+        App.Overlays.Show(new AppListOverlay(title, rows, selected, choose, swap, footer) { TakesShellCommands = true, Beside = beside });
     }
 
     // Newest first. Enter on one with actions lists them, and choosing one tells the app (spec §13.4).
@@ -353,11 +486,15 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         _ = App.Overlays.ShowMessageAsync("Keys", Text.From($"""
             Every key goes to the app, except {prefix}, which opens the launcher,
             and {Named(config.PreviousApp)} and {Named(config.NextApp)}, which go to the previous and the next
-            running app, in the status line's order.
+            running app, in the status line's order, and {Named(config.OtherPane)}, which goes to
+            the other pane when there are two.
             In the launcher and the switcher:
 
             Tab         Swap between them
             Enter       Start or switch to the selected app
+            Ctrl+R      Open it in a pane to the right of the current app
+            Ctrl+B      Open it in a pane below the current app
+            Ctrl+O      One pane: the current app fills the screen
             1-9         Go to the app at that position, before typing a filter
             Ctrl+X      Close the current app
             Ctrl+Q      Quit Desk
@@ -409,27 +546,37 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         else ShowLauncher();
     }
 
-    private void Launch(AppEntry entry)
+    // In the focused pane, or in a second one beside or below it. It starts at the size of where it's going.
+    private void Launch(AppEntry entry, bool beside = false, bool below = false)
     {
-        if (Start(entry) is { } app) SwitchTo(app);
-        else if (_foreground is null) ShowLauncher();
+        beside &= _foreground is not null;
+        var area = beside ? Panes(below)?.Second ?? _pane : _focusedArea.IsEmpty ? _pane : _focusedArea;
+        if (Start(entry, area: area) is { } app)
+        {
+            if (beside) Beside(app, below);
+            else SwitchTo(app);
+        }
+        else if (_foreground is null)
+        {
+            ShowLauncher();
+        }
     }
 
-    private HostedApp? Start(AppEntry entry, bool reportFailure = true)
+    private HostedApp? Start(AppEntry entry, bool reportFailure = true, Rect? area = null)
     {
         var app = new HostedApp(entry, NewId(entry));
-        if (!StartTerminal(app, reportFailure)) return null;
+        if (!StartTerminal(app, reportFailure, area ?? _pane)) return null;
         _apps.Add(app);
         _recent.Add(app);
         return app;
     }
 
     // Set up before the program's output is read, as it can ring or ask about its colors straight away
-    private bool StartTerminal(HostedApp app, bool reportFailure)
+    private bool StartTerminal(HostedApp app, bool reportFailure, Rect area)
     {
         try
         {
-            var info = DeskConfig.StartInfo(app.Entry, Math.Max(1, _pane.Width), Math.Max(1, _pane.Height), _server?.SocketPath, app.Id);
+            var info = DeskConfig.StartInfo(app.Entry, Math.Max(1, area.Width), Math.Max(1, area.Height), _server?.SocketPath, app.Id);
             VtTerminal.Start(info, terminal =>
             {
                 app.Terminal = terminal;
@@ -453,16 +600,16 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         var terminal = app.Terminal;
         terminal.Changed += () =>
         {
-            if (ReferenceEquals(_foreground, app)) App.RequestRedraw();
+            if (Showing(app)) App.RequestRedraw();
         };
         terminal.Exited += () => App.Post(() => OnExited(app, terminal));
         terminal.Bell += () =>
         {
             // Not worth a trip to the UI thread, for a program ringing in a loop
-            if (ReferenceEquals(_foreground, app) || app.WantsAttention) return;
+            if (Showing(app) || app.WantsAttention) return;
             App.Post(() =>
             {
-                if (ReferenceEquals(_foreground, app) || app.WantsAttention) return;
+                if (Showing(app) || app.WantsAttention) return;
                 app.WantsAttention = true;
                 Notify($"{app.Name} wants attention");
             });
@@ -496,7 +643,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         else
         {
             app.Failure = exit;
-            if (!ReferenceEquals(_foreground, app)) Notify($"{app.Name} {exit}");
+            if (!Showing(app)) Notify($"{app.Name} {exit}");
         }
         CheckQuitWait();
     }
@@ -504,7 +651,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     private void Restart(HostedApp app)
     {
         var old = app.Terminal;
-        if (!StartTerminal(app, reportFailure: true)) return;
+        if (!StartTerminal(app, reportFailure: true, _focusedArea.IsEmpty ? _pane : _focusedArea)) return;
         old.Dispose();
         app.Failure = null;
         app.Terminal.HandleFocus(true);
@@ -574,12 +721,19 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     {
         _apps.Remove(app);
         _recent.Remove(app);
+        if (ReferenceEquals(_other, app)) _other = null; // the focused app fills the screen
         if (!ReferenceEquals(_foreground, app)) return;
 
+        // The app that was beside it fills the screen; with one pane, the previous app comes to the front
+        var next = _other ?? _recent.FirstOrDefault();
         _foreground = null;
-        if (_recent.Count > 0) SwitchTo(_recent[0]);
+        _other = null;
+        if (next is not null) SwitchTo(next);
         else if (!_quitting && !_quitWaiting) ShowLauncher();
     }
+
+    // In either pane
+    private bool Showing(HostedApp app) => ReferenceEquals(_foreground, app) || ReferenceEquals(_other, app);
 
     // The user picked it, which means they aren't answering a native app that's deciding whether to quit
     private void ChooseApp(HostedApp app)
@@ -588,7 +742,19 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         SwitchTo(app);
     }
 
+    // Into the focused pane. An app that's showing in the other pane has the focus moved to it instead, as it can't
+    // show twice.
     private void SwitchTo(HostedApp app)
+    {
+        if (ReferenceEquals(app, _other))
+        {
+            _other = _foreground;
+            _focusSecond = !_focusSecond;
+        }
+        GiveFocus(app);
+    }
+
+    private void GiveFocus(HostedApp app)
     {
         var previous = _foreground;
         var changed = !ReferenceEquals(previous, app);
@@ -607,12 +773,6 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
             app.Terminal.HandleFocus(true);
             SendFocus(app, true);
         }
-    }
-
-    private void ResizeAll()
-    {
-        if (_pane.IsEmpty) return;
-        foreach (var app in _apps) app.Terminal.Resize(_pane.Width, _pane.Height);
     }
 
     private void ApplyDefaultColors(VtTerminal terminal)

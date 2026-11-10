@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Two panes (spec §14, 14a): in the launcher or the switcher, `Ctrl+R` opens the selected app to the right of the current one and `Ctrl+B` below it, and `Ctrl+O` goes back to one pane. `Alt+J` focuses the other pane (`otherPane` in `config.json`), and `Alt+H` and `Alt+L` change the app in the focused one. Each app is resized to its pane. When one of the two closes, the other fills the screen, and a screen too small for two shows the focused one. The status line marks the other pane's app bold and underlined, and the lists' footer is three rows. The mouse still goes only to the focused pane, until 14b.
 - The spec for two panes (`docs/SPEC.md` §14): a second app beside or below the first, and no more than two.
 - Phase 2, native apps, is done (spec §13.6): Notes, Tasks and Reader run in Desk and out of it, and a working session with them found five things, all since changed.
 - `Alt+L` and `Alt+H` go to the next and the previous running app, in the status line's order and around its ends, without opening the launcher. Apps inside Desk no longer get these two keys; `nextApp` and `previousApp` in `config.json` change them, or `""` turns one off. Help lists them.

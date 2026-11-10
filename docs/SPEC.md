@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) is specced and comes next, before Phase 4. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14): 14a is done, and 14b (the mouse and the protocol) is next, before Phase 4. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -468,12 +468,12 @@ Phase 2 adds the protocol. Phase 1's sources need no cooperation from apps:
 `~/.config/tuidesk/config.json` and `apps.json` (`$XDG_CONFIG_HOME/tuidesk` when that's set). Both are optional, read at startup, and parsed with System.Text.Json source generation. A broken file doesn't stop Desk: it's ignored, with a notification saying why.
 
 ```json
-{ "prefix": "ctrl+space", "nextApp": "alt+l", "previousApp": "alt+h", "doNotDisturb": true }
+{ "prefix": "ctrl+space", "nextApp": "alt+l", "previousApp": "alt+h", "otherPane": "alt+j", "doNotDisturb": true }
 ```
 ```json
 [{ "id": "k9s", "name": "Kubernetes", "command": "k9s", "args": [], "cwd": "~", "env": {} }]
 ```
-`nextApp` and `previousApp` are the keys of §12.3. Set to `""`, there's no such key and the app gets it. A name that isn't a key is reported, and the whole of `config.json` is ignored.
+`nextApp` and `previousApp` are the keys of §12.3, and `otherPane` the key of §14.4. Set to `""`, there's no such key and the app gets it. A name that isn't a key is reported, and the whole of `config.json` is ignored.
 
 ### 12.8 Limits accepted for v1
 - **Cursor shape (DECSCUSR):** ignored, since `CellBuffer` can only place the cursor. A §7 candidate, with undercurl.
@@ -763,7 +763,7 @@ Nothing changes for someone who never splits.
 ### 14.3 The screen
 - **Side by side:** a column of `│` in the border style between the panes. The first pane, on the left, gets the odd column.
 - **Stacked:** a row of `─` between them. The first pane, on top, gets the odd row.
-- **The status line** highlights the focused app as before, in the selection style, and the app in the other pane in the unfocused selection style. Only the focused app shows its title.
+- **The status line** highlights the focused app as before, in the selection style, and the app in the other pane bold and underlined. (The unfocused selection style was tried first: in the default theme it's the status bar's own color.) Only the focused app shows its title.
 - **The cursor** shows only in the focused pane.
 - **The lists, dialogs and toasts** are placed on the whole screen, as before.
 - **Too small:** side by side needs 20 columns a pane, and stacked 5 rows a pane. Below that only the focused pane shows, at full size, and the other returns when there's room. The status line still marks both.
@@ -818,12 +818,12 @@ No new messages.
 One branch and PR each. No MiniTui core change is expected: `TerminalView` already draws into any area.
 
 **14a — Panes and keys.** §14.3 to §14.5.
-- [ ] `Ctrl+R` and `Ctrl+B` put the selected app beside or below the focused one, from both lists, with and without a split, and `Ctrl+O` returns to one pane.
-- [ ] Each app has its pane's size (`stty size` in each), and its full size again once out of sight.
-- [ ] `Alt+J` moves focus, keys go only to the focused app, and `Alt+H` `Alt+L` skip the other pane's app.
-- [ ] Choosing the other pane's app moves focus. Closing or ending either app leaves the other full screen.
-- [ ] A screen too small for two panes shows the focused one, and both return when it grows.
-- [ ] The status line marks both, and the footer and help list the keys.
+- [x] `Ctrl+R` and `Ctrl+B` put the selected app beside or below the focused one, from both lists, with and without a split, and `Ctrl+O` returns to one pane.
+- [x] Each app has its pane's size (`stty size` in each), and its full size again once out of sight.
+- [x] `Alt+J` moves focus, keys go only to the focused app, and `Alt+H` `Alt+L` skip the other pane's app.
+- [x] Choosing the other pane's app moves focus. Closing or ending either app leaves the other full screen.
+- [x] A screen too small for two panes shows the focused one, and both return when it grows. (The return was checked by hand in tmux: the test harness can't resize.)
+- [x] The status line marks both, and the footer and help list the keys. The footer is three rows now, to fit them.
 
 **14b — Mouse and the protocol.** §14.6 and §14.7.
 - [ ] A press focuses the pane under it and reaches its app with the pane's own coordinates; the wheel and a drag follow §14.6.
