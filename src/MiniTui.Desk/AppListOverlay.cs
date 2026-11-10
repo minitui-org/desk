@@ -11,7 +11,8 @@ internal readonly record struct AppListRow(string Label, string? Detail = null, 
 internal sealed class AppListOverlay : Overlay
 {
     private const int MaxRows = 12;
-    private const int FooterRows = 2;
+    // Rows for the footer: the launcher and the switcher list more keys than fit on two
+    private int FooterRows => _footer.Length > 2 ? 3 : 2;
 
     private readonly string _title;
     private readonly AppListRow[] _rows;
@@ -49,6 +50,12 @@ internal sealed class AppListOverlay : Overlay
     internal IEnumerable<string> Showing => _list.Matches.Select(i => _rows[i].Label);
 
     internal bool FilterIsEmpty => _list.Filter.Text.Length == 0;
+
+    /// <summary>The selected row, as given, or null when nothing matches.</summary>
+    internal int? SelectedRow => _list.Selected;
+
+    /// <summary>Open a row in a pane beside the focused app: to the right, or below when the flag is set (spec §14.4).</summary>
+    internal Action<int, bool>? Beside { get; init; }
 
     /// <summary>The launcher or the switcher, where the shell's commands work (spec §12.3).</summary>
     internal bool TakesShellCommands { get; init; }

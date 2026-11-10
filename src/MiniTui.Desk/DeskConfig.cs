@@ -23,6 +23,7 @@ internal sealed record ConfigFile
     public string? Prefix { get; init; }
     public string? NextApp { get; init; }
     public string? PreviousApp { get; init; }
+    public string? OtherPane { get; init; }
     public bool? DoNotDisturb { get; init; }
 }
 
@@ -52,6 +53,9 @@ internal sealed record DeskConfig
     /// <summary>The keys that go to the next and the previous running app, in the status line's order, or null for none.</summary>
     public KeyBinding? NextApp { get; init; } = KeyBinding.Parse("alt+l");
     public KeyBinding? PreviousApp { get; init; } = KeyBinding.Parse("alt+h");
+
+    /// <summary>The key that focuses the other of two panes (spec §14.4), or null for none.</summary>
+    public KeyBinding? OtherPane { get; init; } = KeyBinding.Parse("alt+j");
 
     public bool DoNotDisturb { get; init; } = true;
     public IReadOnlyList<AppEntry> Apps { get; init; } = [];
@@ -89,7 +93,8 @@ internal sealed record DeskConfig
                 var prefix = key is null ? config.Prefix : KeyBinding.Parse(key);
                 var next = Key(key = file.NextApp, config.NextApp);
                 var previous = Key(key = file.PreviousApp, config.PreviousApp);
-                config = config with { Prefix = prefix, NextApp = next, PreviousApp = previous, DoNotDisturb = file.DoNotDisturb ?? config.DoNotDisturb };
+                var other = Key(key = file.OtherPane, config.OtherPane);
+                config = config with { Prefix = prefix, NextApp = next, PreviousApp = previous, OtherPane = other, DoNotDisturb = file.DoNotDisturb ?? config.DoNotDisturb };
             }
             catch (FormatException)
             {
