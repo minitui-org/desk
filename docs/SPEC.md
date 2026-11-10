@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14): 14a is done, and 14b (the mouse and the protocol) is next, then finding your way in (§15), before Phase 4. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14): 14a and 14b are done, and the phase exit (a working session) is next, then finding your way in (§15), before Phase 4. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -827,10 +827,10 @@ One branch and PR each. No MiniTui core change is expected: `TerminalView` alrea
 - [x] The status line marks both, and the footer and help list the keys. The footer is three rows now, to fit them.
 
 **14b — Mouse and the protocol.** §14.6 and §14.7.
-- [ ] A press focuses the pane under it and reaches its app with the pane's own coordinates; the wheel and a drag follow §14.6.
-- [ ] Only the focused app's clipboard writes are forwarded.
-- [ ] `focus` follows the focused pane, with a real client in each pane.
-- [ ] A `launch` from Reader opens Notes in the other pane, and Reader stays on screen.
+- [x] A press focuses the pane under it and reaches its app with the pane's own coordinates; the wheel and a drag follow §14.6.
+- [x] Only the focused app's clipboard writes are forwarded.
+- [x] `focus` follows the focused pane, with a real client in each pane.
+- [x] A `launch` from Reader opens Notes in the other pane, and Reader stays on screen. (Checked by hand in tmux with the real apps; the test sends the `launch` itself.)
 
 **Phase exit:** Ben uses Reader beside Notes, and an editor over a shell, in a working session.
 
