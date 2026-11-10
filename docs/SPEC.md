@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14): 14a is done, and 14b (the mouse and the protocol) is next, before Phase 4. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14): 14a is done, and 14b (the mouse and the protocol) is next, then finding your way in (§15), before Phase 4. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -128,6 +128,7 @@ Each phase gets its own spec section before implementation begins, with acceptan
 **Phase 2.5 — Two panes**
 - A second app beside or below the first, and no more than two. Specced in §14.
 - Exit: Ben uses Reader beside Notes, and an editor over a shell, in a working session.
+- Alongside it: a status-line hint and a first-run welcome, so a new user finds the prefix and help (§15).
 
 **Phase 3 — Bare console (optional)**
 - A DRM/KMS `ITerminalBackend` with font rasterization (FreeType or a prebuilt bitmap font atlas).
@@ -836,3 +837,50 @@ One branch and PR each. No MiniTui core change is expected: `TerminalView` alrea
 ### 14.9 Out of scope
 More than two panes, nesting, resizing or dragging the divider, swapping the two sides, zooming one pane, remembering pairs of apps, restoring a split at startup, and one app showing in both panes.
 
+
+## 15. Finding your way in
+
+### 15.1 Purpose
+Someone opening Desk for the first time sees a shell and a status line with `1 Shell` and the clock. Nothing on screen names the prefix, help is only reachable through the prefix, and the config files are only in the README. This section makes the way in visible without taking a key from hosted apps or keeping space on the status line once it's learned.
+
+### 15.2 Decisions
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Should the status line name the prefix? | **Asked: until it's first used.** `Ctrl+Space menu` is about 15 columns, too many to keep for good. Once the prefix has been pressed, the hint never returns, and help and the welcome do the rest |
+| 2 | Should `F1` open help outside the lists? | **Asked: no, the launcher only.** Apps such as htop, mc and vim keep their own `F1`. The hint and the welcome both say how to reach help |
+| 3 | A screen for changing settings and keys? | **Default, not asked: not now.** It needs key capture, conflict checks against the prefix and apps' keys, and writing the JSON back without losing what was written by hand. Help shows the config paths and the keys as configured instead. Revisit when someone asks to rebind |
+| 4 | Where is "already seen" kept? | **Default, not asked: a state file**, `$XDG_STATE_HOME/tuidesk/state.json` (`~/.local/state/tuidesk`), since it isn't config the user writes |
+
+### 15.3 The hint
+- On the right of the status line, before the notification count: the prefix's name and `menu`, muted, built from `prefix` in `config.json` (`Ctrl+Space menu`).
+- It shows until the prefix is pressed for the first time, ever. A click on the status line, which opens the switcher, doesn't count.
+- When the line is short of room, the hint goes before the apps do (§12.3).
+
+### 15.4 The welcome
+- On the first start, ever, a message titled "Welcome to Desk" shows over the first app. It says, with the keys as configured:
+  - the prefix opens the launcher, to start apps, switch, split and quit, and `F1` there lists every key;
+  - the next and previous app keys, and the other-pane key;
+  - where `config.json` and `apps.json` live.
+- `Enter` or `Esc` closes it. It isn't shown again, whether or not the prefix was used.
+
+### 15.5 Help
+Help (§12.3) adds the config paths, with `~` for the home directory, after the keys. The keys it lists already follow `config.json`.
+
+### 15.6 The state file
+```json
+{ "welcomed": true, "prefixUsed": true }
+```
+- Read at startup and written when either changes. A missing or broken file counts as nothing seen. A write that fails is ignored: the welcome or the hint shows again next time, which does no harm.
+- The tests run with their own `XDG_STATE_HOME`, as with the other XDG directories.
+
+### 15.7 Acceptance
+One branch and PR.
+- [ ] With no state file, the welcome shows on start, names the configured keys and paths, and closes with `Enter` or `Esc`. It doesn't show on the next start.
+- [ ] The hint shows the configured prefix until the prefix is pressed, and not after a restart. A click on the status line leaves it.
+- [ ] On a narrow screen, the hint goes before the apps' names.
+- [ ] Help lists the config paths.
+- [ ] A broken or unwritable state file doesn't stop Desk.
+
+### 15.8 Out of scope
+A settings or key-binding editor (decision 3), a tour, and tips that rotate.
