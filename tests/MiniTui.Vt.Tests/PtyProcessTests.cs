@@ -55,9 +55,8 @@ public class PtyProcessTests
         using var pty = new PtyHarness(new VtStartInfo("bash") { Args = ["--norc", "--noprofile", "-i"] });
 
         pty.Send("sleep 30\n");
-        Thread.Sleep(300);
-        pty.Send("\x1a");
-        pty.WaitForOutput("Stopped");
+        // Until sleep is in the foreground, a ^Z only reaches bash, which ignores it
+        pty.SendUntil("\x1a", "Stopped");
         pty.Send("kill %1; exit\n");
     }
 

@@ -41,6 +41,19 @@ internal sealed class PtyHarness : IDisposable
         }
     }
 
+    /// <summary>Sends <paramref name="text"/> again every 200 ms until <paramref name="expected"/> is in the output,
+    /// for input that only works once the child is ready for it.</summary>
+    public void SendUntil(string text, string expected)
+    {
+        var deadline = DateTime.UtcNow + s_timeout;
+        while (!Output.Contains(expected, StringComparison.Ordinal))
+        {
+            if (DateTime.UtcNow > deadline) Assert.Fail($"No \"{expected}\" in the output:\n{Output}");
+            Send(text);
+            for (var i = 0; i < 20 && !Output.Contains(expected, StringComparison.Ordinal); i++) Thread.Sleep(10);
+        }
+    }
+
     public async Task<PtyExit> WaitForExit() => await Process.Exit.WaitAsync(s_timeout);
 
     public string WaitForEnd()
