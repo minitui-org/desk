@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The spec for two panes (`docs/SPEC.md` §14): a second app beside or below the first, and no more than two.
 - Phase 2, native apps, is done (spec §13.6): Notes, Tasks and Reader run in Desk and out of it, and a working session with them found five things, all since changed.
 - `Alt+L` and `Alt+H` go to the next and the previous running app, in the status line's order and around its ends, without opening the launcher. Apps inside Desk no longer get these two keys; `nextApp` and `previousApp` in `config.json` change them, or `""` turns one off. Help lists them.
 - The status line lists the running apps by the number `1`–`9` picks them with, the current one highlighted with its title, so you can see what's open and which number is which. The current app's title is cut to fit the others, and on a screen too narrow for their names only the current app shows. A click on another app's name switches to it.
