@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phase 0 done; Phase 1 (§12) specced. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Phase 3 or 4 is next, and neither is specced. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -592,6 +592,8 @@ One branch and PR each.
 - [x] Its gaps are filed against MiniTui. Notes: minitui#74 to #79, fixed in MiniTui 2.2.0, and #85 (help while typing), fixed in 2.3.0, which Notes and `tuidesk` now use in place of their workarounds. Tasks: minitui#88 (row styles), first worked around with `✓` and `Overdue` in the text, then fixed in MiniTui 2.4.0: done tasks are muted and an overdue time is in the error color, and the `✓` went, as the hint says `Done`. Reader: minitui#89 (no Markdown widget), #90 (paragraph text can only be selected with the mouse) and #91 (wrapping styled text is internal), first worked around with its own formatter, a highlighted block and its own wrapping, then fixed in MiniTui 2.4.0, where Reader's formatter and block highlight moved; Reader now uses `Widget.Markdown`.
 
 **Phase exit:** the apps show their name and status in the shell and route notifications through it, and Ben uses them in a working session.
+
+**Met on 2026-11-09.** Ben's working session found five things, each since changed: the launcher's footer (keys in bold, below a rule), the status line listing the running apps by number (§12.3), `j` `k` and `/` in the apps' lists (§13.8), and `Alt+H` and `Alt+L` to go between apps (§12.3). Phase 2 is done.
 
 ### 13.7 Out of scope
 Clipboard over the protocol, rendering over the socket, IPC between apps (§8.4), a manifest format and `dotnet new` template (Phase 4), and publishing packages.
