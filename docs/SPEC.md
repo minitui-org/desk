@@ -411,7 +411,7 @@ examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 - Nothing is published in Phase 1.
 
 ### 12.3 Screen and keys
-The top rows are the foreground app, full width. The last row is the status line: the running apps, notification count, clock. Do Not Disturb shows as a muted marker. Each app shows its number for `1`–`9` and its name, and the current one is highlighted in the selection style with its title (OSC 0/2) after its name. The title is cut to leave room for the others, and if even their names don't fit, only the current app shows. A message (closing, waiting to quit, how an app ended, asked to quit) takes the apps' place while it applies.
+The top rows are the foreground app, full width. The last row is the status line: the running apps, notification count, clock. Do Not Disturb shows as a marker, `DND`, in the status line's own color (the muted style was tried first: in the default theme it's the status bar's background). Each app shows its number for `1`–`9` and its name, and the current one is highlighted in the selection style with its title (OSC 0/2) after its name. The title is cut to leave room for the others, and if even their names don't fit, only the current app shows. A message (closing, waiting to quit, how an app ended, asked to quit) takes the apps' place while it applies.
 
 Every key goes to the foreground app except three. The prefix, `Ctrl+Space` by default, opens the launcher (§12.4). `Alt+L` and `Alt+H` go to the next and the previous running app, in the status line's order and around its ends; with one app they do nothing, and the app still doesn't get them. They aren't taken while a list or a dialog is open.
 
@@ -853,7 +853,7 @@ Someone opening Desk for the first time sees a shell and a status line with `1 S
 | 4 | Where is "already seen" kept? | **Default, not asked: a state file**, `$XDG_STATE_HOME/tuidesk/state.json` (`~/.local/state/tuidesk`), since it isn't config the user writes |
 
 ### 15.3 The hint
-- On the right of the status line, before the notification count: the prefix's name and `menu`, muted, built from `prefix` in `config.json` (`Ctrl+Space menu`).
+- On the right of the status line, before the notification count: the prefix's name and `menu`, in the status line's own color, built from `prefix` in `config.json` (`Ctrl+Space menu`). Muted was specced first, and couldn't be seen: in the default theme it's the status bar's background, which had hidden the `DND` marker since Phase 1 too.
 - It shows until the prefix is pressed for the first time, ever. A click on the status line, which opens the switcher, doesn't count.
 - When the line is short of room, the hint goes before the apps do (§12.3).
 

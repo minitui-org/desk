@@ -209,9 +209,9 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     {
         var right = new List<Span>();
         // Until the prefix has been found, the way to it (spec §15.3)
-        Span? hint = _state.PrefixUsed ? (Span?)null : new Span(Named(config.Prefix) + " menu  ", Theme.Current.TextMuted);
+        Span? hint = _state.PrefixUsed ? (Span?)null : new Span(Named(config.Prefix) + " menu  ", default);
         if (Unread is > 0 and var unread) right.Add(new Span(unread.ToString(CultureInfo.InvariantCulture) + " new  ", default));
-        if (_doNotDisturb) right.Add(new Span("DND  ", Theme.Current.TextMuted));
+        if (_doNotDisturb) right.Add(new Span("DND  ", default));
         right.Add(new Span(Now().ToString("HH:mm", CultureInfo.InvariantCulture), default));
         _statusApps.Clear();
         var message = StatusMessage();

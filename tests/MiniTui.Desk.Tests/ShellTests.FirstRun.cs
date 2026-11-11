@@ -143,4 +143,22 @@ public sealed partial class ShellTests
         Assert.False(Harness.App.Overlays.Any);
         Assert.DoesNotContain("menu", Status, StringComparison.Ordinal);
     }
+
+    // The muted style was tried first: in the default theme it's the status bar's own color, so neither showed
+    [Fact]
+    public void The_hint_and_the_dnd_marker_can_be_seen_on_the_status_line()
+    {
+        StartFresh();
+        UntilWelcomed();
+        Harness.Press("esc");
+        Harness.RunUntilIdle();
+        Assert.True(Shell.DoNotDisturb);
+        foreach (var text in new[] { "menu", "DND" })
+        {
+            var x = Status.IndexOf(text, StringComparison.Ordinal);
+            Assert.True(x >= 0, text);
+            var cell = Harness.CellAt(x, 23);
+            Assert.NotEqual(cell.Bg, cell.Fg);
+        }
+    }
 }
