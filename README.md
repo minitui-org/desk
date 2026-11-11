@@ -34,7 +34,16 @@ the current one and `Ctrl+B` in a pane below it, where `Enter` opens it in the c
 pane, and the other app keeps running. There are never more than two. A click in a pane focuses it, and an app that
 opens another, as Reader does with Notes, opens it in the other pane.
 
-Add apps to `~/.config/tuidesk/apps.json`, and set the keys or turn Do Not Disturb off in `config.json`. Set `nextApp`,
+`tuidesk add <command>` puts an app in the launcher. An app made with `MiniTui.Desk.Protocol` says its own id and
+name; any other program needs `--id` and `--name`, and its arguments go after `--`. `tuidesk apps` lists what the
+launcher shows and where each came from, and `tuidesk remove <id>` takes one out. Notes, Tasks and Reader are there
+without being added when they're on `PATH`.
+
+```bash
+tuidesk add k9s --id k9s --name Kubernetes -- -A
+```
+
+Or write apps into `~/.config/tuidesk/apps.json`, which wins over the others on an id, and set the keys or turn Do Not Disturb off in `config.json`. Set `nextApp`,
 `previousApp` or `otherPane` to `""` to give that key back to the apps:
 
 ```json
@@ -44,8 +53,8 @@ Add apps to `~/.config/tuidesk/apps.json`, and set the keys or turn Do Not Distu
 { "prefix": "ctrl+space", "nextApp": "alt+l", "previousApp": "alt+h", "otherPane": "alt+j", "doNotDisturb": true }
 ```
 
-Notes is the first app made for Desk: Markdown notes in plain files, saved as you type. Run it on its own, or add it
-to `apps.json` to see the open note in Desk's status line. Its keys are in [`apps/Notes`](apps/Notes/README.md).
+Notes is the first app made for Desk: Markdown notes in plain files, saved as you type. Run it on its own, or in Desk, where
+the status line shows the open note. Its keys are in [`apps/Notes`](apps/Notes/README.md).
 
 ```bash
 dotnet run --project apps/Notes

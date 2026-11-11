@@ -6,7 +6,7 @@ var app = App.Create()
     .WithTheme(Theme.Dark, Theme.Light)
     .WithChrome(statusBar: true, breadcrumb: false)
     .WithMouse()
-    .WithDesk("Tasks", out var desk);
+    .WithDesk("Tasks", out var desk, manifest: new DeskManifest { Id = "tasks", Description = "A to-do list with due dates, in todo.txt" }); // as tuidesk lists it (spec §16.4)
 
 // Inside Desk, reminders go to the shell; outside it they're toasts
 var tasks = new TasksScreen(new TaskStore(TaskStore.DefaultDirectory()), setTitle: desk.SetTitle,

@@ -10,7 +10,7 @@ namespace MiniTui.Desk.Protocol;
 /// member does nothing, nothing throws, and the app carries on. Apps don't need to check.
 /// </summary>
 /// <remarks>
-/// Without <see cref="DeskAppExtensions.WithDesk(App, string, out DeskClient, string?)"/>, events arrive on a background thread, one at a time, and one that
+/// Without <see cref="DeskAppExtensions.WithDesk(App, string, out DeskClient, string?, DeskManifest?)"/>, events arrive on a background thread, one at a time, and one that
 /// arrives before its handler is added is missed. An exception from a handler there is ignored.
 /// </remarks>
 public sealed class DeskClient : IAsyncDisposable
@@ -87,7 +87,7 @@ public sealed class DeskClient : IAsyncDisposable
 
     /// <summary>
     /// The shell asks the app to close. It should exit, or ask the user and call <see cref="DeclineQuit"/> if they
-    /// choose to stay. With no handler, an app using <see cref="DeskAppExtensions.WithDesk(App, string, out DeskClient, string?)"/> quits.
+    /// choose to stay. With no handler, an app using <see cref="DeskAppExtensions.WithDesk(App, string, out DeskClient, string?, DeskManifest?)"/> quits.
     /// </summary>
     public event Action? QuitRequested;
 

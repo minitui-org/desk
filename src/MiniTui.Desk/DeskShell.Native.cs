@@ -5,7 +5,7 @@ namespace MiniTui.Desk;
 /// <summary>Native apps (spec §8, §13.4): what they say over the protocol, and asking them to quit.</summary>
 internal sealed partial class DeskShell
 {
-    private const string ShellId = "shell";
+    internal const string ShellId = "shell";
     private const string UnnamedId = "app";
 
     private readonly HashSet<DeskConnection> _connections = [];

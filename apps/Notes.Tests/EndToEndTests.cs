@@ -272,4 +272,19 @@ public sealed class EndToEndTests : IDisposable
         Assert.Equal("hello", File.ReadAllText(NotePath("First")));
         lock (notes.Lock) Assert.False(notes.Screen.Modes.AlternateScreen);
     }
+
+    // ---- Manifest (spec §16.4) ----
+
+    [Fact]
+    public void In_manifest_mode_it_says_its_manifest_and_exits()
+    {
+        var info = new System.Diagnostics.ProcessStartInfo(Notes) { RedirectStandardOutput = true, RedirectStandardInput = true, UseShellExecute = false };
+        info.Environment["MINITUI_DESK_MANIFEST"] = "1";
+        using var process = System.Diagnostics.Process.Start(info)!;
+        var said = process.StandardOutput.ReadToEnd();
+        Assert.True(process.WaitForExit(15_000));
+        Assert.Equal(0, process.ExitCode);
+        Assert.Equal("""{"id":"notes","name":"Notes","description":"Markdown notes in plain files"}""", said.Trim());
+        Assert.False(Directory.Exists(Path.Combine(Data, "tuinotes")));
+    }
 }

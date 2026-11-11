@@ -3,6 +3,16 @@ using System.Text.Json.Serialization;
 
 namespace MiniTui.Desk.Protocol;
 
+/// <summary>What an app says in manifest mode (spec §16.4): its manifest, with the name and version it joins Desk with.</summary>
+internal sealed record ManifestAnswer
+{
+    public string? Id { get; init; }
+    public string? Name { get; init; }
+    public string? Version { get; init; }
+    public string? Description { get; init; }
+    public string[]? Args { get; init; }
+}
+
 /// <summary>One line of the protocol (spec §8.3). Which fields mean anything depends on <see cref="Type"/>.</summary>
 internal sealed record DeskMessage
 {
@@ -27,6 +37,7 @@ internal sealed record DeskMessage
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(DeskMessage))]
+[JsonSerializable(typeof(ManifestAnswer))]
 internal sealed partial class DeskJson : JsonSerializerContext;
 
 /// <summary>The protocol's format, shared by the client and the shell (spec §8.2).</summary>

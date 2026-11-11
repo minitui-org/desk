@@ -6,7 +6,7 @@ var app = App.Create()
     .WithTheme(Theme.Dark, Theme.Light)
     .WithChrome(statusBar: true, breadcrumb: false)
     .WithMouse()
-    .WithDesk("Notes", out var desk);
+    .WithDesk("Notes", out var desk, manifest: new DeskManifest { Id = "notes", Description = "Markdown notes in plain files" }); // as tuidesk lists it (spec §16.4)
 
 // tuinotes --append <name> <text> (spec §13.8): how Reader sends a passage
 (string, string)? append = args is ["--append", var name, var text] ? (name, text) : null;
