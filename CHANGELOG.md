@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `tools/clean-machine/Dockerfile`: a machine with only the .NET SDK and an ordinary user who can sudo, for following minitui.org/desk from nothing.
 
+### Fixed
+- The writing-an-app guide and the template's README say that the Native AOT pack needs `clang` and `zlib1g-dev`, which a machine with only the .NET SDK doesn't have.
+
 ## [0.1.0] - 2026-11-11
 
 The first release of MiniTui Desk: `tuidesk`, Notes, Tasks and Reader as .NET tools for Linux on x64 and arm64, the `MiniTui.Desk.Protocol` and `MiniTui.Vt` libraries, and the `tuidesk-app` template. Guides at [minitui.org/desk](https://minitui.org/desk).

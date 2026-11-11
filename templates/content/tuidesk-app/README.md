@@ -12,6 +12,10 @@ dotnet test                    # the tests, with ComponentHarness
 
 Install it as a tool, then add it to Desk's launcher. Desk shows it from its next start.
 
+The binary is built with Native AOT, which needs a C toolchain: `sudo apt install clang zlib1g-dev` on Debian or
+Ubuntu, `sudo dnf install clang zlib-devel` on Fedora. The
+[prerequisites](https://aka.ms/nativeaot-prerequisites) list the others.
+
 ```bash
 dotnet pack MyApp -o nupkg                    # the top-level package
 dotnet pack MyApp -r linux-x64 -o nupkg       # the Native AOT binary for this platform
