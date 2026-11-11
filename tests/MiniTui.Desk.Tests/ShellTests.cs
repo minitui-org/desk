@@ -85,7 +85,8 @@ public sealed partial class ShellTests : IDisposable
         Launch("rather");
         UntilShows("second");
         Assert.StartsWith("  2 a rather long name ", Status, StringComparison.Ordinal);
-        Assert.DoesNotContain("1 ", Status, StringComparison.Ordinal);
+        // App 1's number, not the clock's, which says "14:51 " at a minute ending in 1
+        Assert.DoesNotMatch(@"(^|\s)1 ", Status);
     }
 
     [Fact]
