@@ -3,7 +3,7 @@
 A distraction-free, terminal-based desktop environment for Linux, built on
 [MiniTui](https://github.com/minitui-org/minitui).
 
-Early days. The plan is in [`docs/SPEC.md`](docs/SPEC.md), and the guides, from the first release, at
+Early days. The plan is in [`docs/SPEC.md`](docs/SPEC.md), and the guides at
 [minitui.org/desk](https://minitui.org/desk), written in [`docs/site`](docs/site). What exists today is `tuidesk`: one app on the screen, one
 row of status, and one key taken from the app. It needs nothing but the .NET 10 SDK to try, and opens your shell.
 
@@ -11,7 +11,7 @@ row of status, and one key taken from the app. It needs nothing but the .NET 10 
 dotnet run --project src/MiniTui.Desk
 ```
 
-Once released, Desk and its apps install as .NET tools, each a Native AOT binary for linux-x64 or linux-arm64:
+Desk and its apps install as .NET tools, each a Native AOT binary for linux-x64 or linux-arm64:
 
 ```bash
 dotnet tool install -g MiniTui.Desk         # tuidesk
