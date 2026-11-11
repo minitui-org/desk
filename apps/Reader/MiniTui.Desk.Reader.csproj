@@ -15,7 +15,15 @@
     <IsAotCompatible>true</IsAotCompatible>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
-    <IsPackable>false</IsPackable>
+    <!-- A .NET tool with a Native AOT binary per platform (spec §16.3) -->
+    <IsPackable>true</IsPackable>
+    <PackageId>MiniTui.Desk.Reader</PackageId>
+    <Description>A reader for the terminal: a folder of Markdown and text files, formatted, with passages sent to Notes. Made for MiniTui Desk, and works on its own.</Description>
+    <PackageTags>tui;terminal;minitui;desk</PackageTags>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>tuireader</ToolCommandName>
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>

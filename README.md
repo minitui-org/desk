@@ -10,6 +10,17 @@ row of status, and one key taken from the app. It needs nothing but the .NET 10 
 dotnet run --project src/MiniTui.Desk
 ```
 
+Once released, Desk and its apps install as .NET tools, each a Native AOT binary for linux-x64 or linux-arm64:
+
+```bash
+dotnet tool install -g MiniTui.Desk         # tuidesk
+dotnet tool install -g MiniTui.Desk.Notes   # tuinotes, and .Tasks and .Reader likewise
+```
+
+`tools/pack.sh <folder> any` packs the libraries and the tools' top-level packages, and `tools/pack.sh <folder>
+linux-x64` each tool's binary for that platform, which has to be built on it. `dotnet tool install MiniTui.Desk
+--tool-path <dir> --add-source <folder>` then installs from the folder.
+
 Every key goes to the app except `Ctrl+Space`, which opens the launcher, and `Alt+H` and `Alt+L`, which go to the
 previous and the next running app, in the order the status line lists them. `Alt+J` goes to the other pane when two apps are
 showing. In the launcher, type to filter and press `Enter` to start an

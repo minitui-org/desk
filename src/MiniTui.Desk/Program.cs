@@ -5,6 +5,24 @@ using MiniTui.Desk;
 
 [assembly: SupportedOSPlatform("linux")]
 
+switch (args)
+{
+    case []:
+        break;
+    case ["--version"]:
+        Console.WriteLine(DeskVersion.Current);
+        return 0;
+    default:
+        Console.Error.WriteLine("Usage: tuidesk [--version]");
+        return 2;
+}
+
+if (Console.IsInputRedirected || Console.IsOutputRedirected)
+{
+    Console.Error.WriteLine("tuidesk needs a terminal: run it in one, without redirecting its input or output.");
+    return 1;
+}
+
 var app = App.Create()
     .WithMouse()
     .WithHover()
@@ -25,3 +43,4 @@ finally
 {
     shell.Shutdown();
 }
+return 0;

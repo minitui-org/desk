@@ -13,7 +13,14 @@
     <IsAotCompatible>true</IsAotCompatible>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
-    <IsPackable>false</IsPackable>
+
+    <!-- A library on NuGet (spec §16.3) -->
+    <IsPackable>true</IsPackable>
+    <PackageId>MiniTui.Desk.Protocol</PackageId>
+    <Description>Join MiniTui Desk from a MiniTui app with one call: a title, notifications, launching other apps, focus and quit requests. Does nothing outside Desk.</Description>
+    <PackageTags>tui;terminal;minitui;desk</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
