@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk: 4a (packages), 4b (manifests and `tuidesk add`), 4c (the template) and 4d (docs) are done, and the phase exit is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk, is done, released as 0.1.0. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -983,6 +983,8 @@ One branch and PR each.
 - [x] Found in the doing: the site build uses desk's own `docfx.json` with the minitui template added, so desk's CI builds what the site does, and the API pages link `MiniTui` types through minitui.org's xref map. The menu's `Desk` entry is added by the workflow when there's a tag, so the site has no dead link before the first release. The guides' Python client and manifest were run against Desk.
 
 **Phase exit:** Ben, on a machine or container with only the .NET SDK, follows `minitui.org/desk` from nothing: installs Desk and Notes, makes an app with the template, adds it, and sees its name and a notification in Desk.
+- [x] Done on 2026-11-11 with 0.1.0 from nuget.org, in `tools/clean-machine/Dockerfile`'s container.
+- [x] Found in the doing: the template's Native AOT pack needs `clang` and `zlib1g-dev`, which a machine with only the SDK doesn't have, and the guides didn't say so. They do now, and the site shows it from the next release.
 
 ### 16.9 Risks
 - **Platform-specific AOT tools** are new in .NET 10. If `dotnet tool install` doesn't pick the right package, or AOT tools misbehave, a framework-dependent tool is the fallback, at the cost of startup time. That would be a new decision.
