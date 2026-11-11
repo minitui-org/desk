@@ -5,7 +5,7 @@
     <MiniTuiVersion Condition="'$(MiniTuiVersion)' == ''">2.5.0</MiniTuiVersion>
 
     <!-- One version for every package in the repo (spec §16.2), set from the tag when publishing -->
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
 
     <!-- Nothing is a package unless its project says so -->
     <IsPackable>false</IsPackable>

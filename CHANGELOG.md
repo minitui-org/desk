@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-11
+
+The guides and the template's README say what a Native AOT pack needs.
+
 ### Added
 - `tools/clean-machine/Dockerfile`: a machine with only the .NET SDK and an ordinary user who can sudo, for following minitui.org/desk from nothing.
 
