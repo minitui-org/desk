@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk, is specced and next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk: 4a (packages) is done, and 4b (manifests and `tuidesk add`) is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -963,9 +963,9 @@ Weather/
 One branch and PR each.
 
 **4a — Packages and the tools.** §16.3.
-- [ ] `dotnet pack` makes the two libraries and four tools, at the repo's version, and the tools install from a local folder and run on linux-x64 as Native AOT.
-- [ ] `publish.yml` pushes on a tag, and CI packs and smoke-tests the tool on every pull request.
-- [ ] Nothing is released: the first release is its own PR, when Ben says.
+- [x] `dotnet pack` makes the two libraries and four tools, at the repo's version, and the tools install from a local folder and run on linux-x64 as Native AOT.
+- [x] `publish.yml` pushes on a tag, and CI packs and smoke-tests the tool on every pull request, on x64 and on an arm64 runner. `publish.yml` also fails if the tag isn't `Directory.Build.props`' version, and pushes the platform packages before the top-level ones that point to them.
+- [x] Nothing is released: the first release is its own PR, when Ben says.
 
 **4b — Manifests and `tuidesk add`.** §16.4 and §16.5.
 - [ ] Notes, Tasks and Reader declare manifests, and `MINITUI_DESK_MANIFEST=1 tuinotes` prints Notes'.

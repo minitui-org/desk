@@ -1,0 +1,105 @@
+name: Publish
+
+# Desk's packages (spec §16.3), for a vX.Y.Z tag that Ben pushes once the release PR is merged
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The tag and Directory.Build.props have to agree, so what's on NuGet is what the repo says it released
+      - name: Check the version
+        run: |
+          props=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)
+          test "${GITHUB_REF_NAME#v}" = "$props" || { echo "Tag $GITHUB_REF_NAME, but Directory.Build.props says $props"; exit 1; }
+
+      - name: Build
+        run: dotnet build src/MiniTui.Desk.sln --configuration Release -warnaserror
+
+      - name: Test
+        run: dotnet test src/MiniTui.Desk.sln --configuration Release --no-build
+
+  # The libraries and top-level tool packages with linux-x64, and linux-arm64 on its own platform
+  pack:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            packs: any linux-x64
+          - os: ubuntu-24.04-arm
+            packs: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Pack
+        run: for what in ${{ matrix.packs }}; do tools/pack.sh nupkg "$what"; done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-${{ matrix.os }}
+          path: nupkg/
+
+  push:
+    needs: pack
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # nuget.org trusted publishing
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: nupkg-*
+          path: nupkg
+          merge-multiple: true
+
+      # The platform packages first, so a top-level tool package is never up without the binary it points to
+      - name: Order the packages
+        run: |
+          ls nupkg/*.linux-*.nupkg > order
+          ls nupkg/*.nupkg | grep -v '\.linux-' >> order
+          cat order
+
+      - name: Push to GitHub Packages
+        run: |
+          while read -r package; do
+            dotnet nuget push "$package" --source "https://nuget.pkg.github.com/minitui-org/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+          done < order
+
+      # nuget.org via trusted publishing, as in the minitui repo. Skipped until this repository has a NUGET_USER
+      # variable and a trusted publishing policy on nuget.org for minitui-org/desk and publish.yml.
+      - name: Log in to nuget.org
+        id: nuget-login
+        if: vars.NUGET_USER != ''
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Push to nuget.org
+        if: vars.NUGET_USER != ''
+        run: |
+          while read -r package; do
+            dotnet nuget push "$package" --source https://api.nuget.org/v3/index.json --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --skip-duplicate
+          done < order

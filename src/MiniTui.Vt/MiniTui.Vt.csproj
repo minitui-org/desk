@@ -14,7 +14,14 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
-    <IsPackable>false</IsPackable>
+
+    <!-- A library on NuGet (spec §16.3) -->
+    <IsPackable>true</IsPackable>
+    <PackageId>MiniTui.Vt</PackageId>
+    <Description>A terminal emulator for MiniTui: run a program in a pseudo-terminal and draw its screen in a MiniTui app. Linux.</Description>
+    <PackageTags>tui;terminal;minitui;pty;vt100;terminal-emulator</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>

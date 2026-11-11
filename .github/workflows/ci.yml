@@ -31,6 +31,41 @@ jobs:
           ./aot/MiniTui.Vt.AotHost
           dotnet publish tests/MiniTui.Desk.Protocol.AotHost/MiniTui.Desk.Protocol.AotHost.csproj --configuration Release --output aot-protocol
           ./aot-protocol/MiniTui.Desk.Protocol.AotHost
-          dotnet publish apps/Notes/MiniTui.Desk.Notes.csproj --configuration Release -r linux-x64 -p:PublishAot=true --output aot-notes
-          dotnet publish apps/Tasks/MiniTui.Desk.Tasks.csproj --configuration Release -r linux-x64 -p:PublishAot=true --output aot-tasks
-          dotnet publish apps/Reader/MiniTui.Desk.Reader.csproj --configuration Release -r linux-x64 -p:PublishAot=true --output aot-reader
+
+      # Every package, with the tools as Native AOT, and tuidesk installed from them as a user would (spec §16.3)
+      - name: Pack
+        run: |
+          tools/pack.sh nupkg any -p:Version=$CI_VERSION
+          tools/pack.sh nupkg linux-x64 -p:Version=$CI_VERSION
+        env:
+          CI_VERSION: 0.0.0-ci.${{ github.run_number }}
+
+      - name: Install the tool
+        run: |
+          dotnet tool install MiniTui.Desk --tool-path tool --add-source nupkg --version 0.0.0-ci.${{ github.run_number }}
+          test "$(./tool/tuidesk --version)" = 0.0.0-ci.${{ github.run_number }}
+
+  # The arm64 tools are built on arm64, as Native AOT needs
+  arm64:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Pack
+        run: |
+          tools/pack.sh nupkg any -p:Version=$CI_VERSION
+          tools/pack.sh nupkg linux-arm64 -p:Version=$CI_VERSION
+        env:
+          CI_VERSION: 0.0.0-ci.${{ github.run_number }}
+
+      - name: Install the tool
+        run: |
+          dotnet tool install MiniTui.Desk --tool-path tool --add-source nupkg --version 0.0.0-ci.${{ github.run_number }}
+          test "$(./tool/tuidesk --version)" = 0.0.0-ci.${{ github.run_number }}
+          file -L tool/tuidesk | grep -q aarch64

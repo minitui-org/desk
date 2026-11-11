@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Packages (spec §16.3, 4a): `MiniTui.Desk.Protocol` and `MiniTui.Vt` are NuGet libraries, and Desk, Notes, Tasks and Reader are .NET tools (`MiniTui.Desk`, `MiniTui.Desk.Notes`, `.Tasks`, `.Reader`) with a Native AOT binary for linux-x64 and linux-arm64. Every package is version 0.1.0, from `Directory.Build.props`. CI packs them all on every push, on x64 and arm64, and installs and runs `tuidesk`; `publish.yml` pushes them for a `v*` tag. Nothing is released yet.
+- `tuidesk --version`, and a message rather than a crash when it isn't run in a terminal.
 - Finding your way in (spec §15): on the first start, a welcome lists the keys Desk takes from apps and where the config files are, and the status line says `Ctrl+Space menu` until the prefix is first pressed. Both are remembered in `~/.local/state/tuidesk/state.json` (`$XDG_STATE_HOME`), so they don't come back; delete it to see them again. Help ends with the config paths, and Desk writes configured keys as `Ctrl+Space` rather than `ctrl+space`.
 
 ### Fixed

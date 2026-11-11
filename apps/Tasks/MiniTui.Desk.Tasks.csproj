@@ -15,7 +15,15 @@
     <IsAotCompatible>true</IsAotCompatible>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
-    <IsPackable>false</IsPackable>
+    <!-- A .NET tool with a Native AOT binary per platform (spec §16.3) -->
+    <IsPackable>true</IsPackable>
+    <PackageId>MiniTui.Desk.Tasks</PackageId>
+    <Description>Tasks for the terminal: a to-do list with due dates in a todo.txt file. Made for MiniTui Desk, and works on its own.</Description>
+    <PackageTags>tui;terminal;minitui;desk</PackageTags>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>tuitasks</ToolCommandName>
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>

@@ -3,5 +3,26 @@
     <!-- The MiniTui package every project builds against. To try an unreleased one, pack it to a folder and pass
          -p:MiniTuiVersion=<version> -p:RestoreAdditionalProjectSources=<folder>. -->
     <MiniTuiVersion Condition="'$(MiniTuiVersion)' == ''">2.5.0</MiniTuiVersion>
+
+    <!-- One version for every package in the repo (spec §16.2), set from the tag when publishing -->
+    <Version>0.1.0</Version>
+
+    <!-- Nothing is a package unless its project says so -->
+    <IsPackable>false</IsPackable>
+    <Authors>Discover Edge LLC</Authors>
+    <Copyright>Copyright (c) 2026 Discover Edge LLC</Copyright>
+    <RepositoryUrl>https://github.com/minitui-org/desk</RepositoryUrl>
+    <PackageProjectUrl>https://minitui.org/desk</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <!-- Each package's page on nuget.org, and MiniTui's icon -->
+    <None Include="PACKAGE.md" Pack="true" PackagePath="/README.md" />
+    <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
 </Project>
