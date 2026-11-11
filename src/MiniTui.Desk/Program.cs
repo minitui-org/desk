@@ -12,8 +12,10 @@ switch (args)
     case ["--version"]:
         Console.WriteLine(DeskVersion.Current);
         return 0;
+    case var _ when DeskCommands.Handles(args):
+        return new DeskCommands(DeskConfig.DefaultDirectory(), DeskApps.DefaultDirectory(), Environment.GetEnvironmentVariable("PATH"), Console.Out, Console.Error).Run(args);
     default:
-        Console.Error.WriteLine("Usage: tuidesk [--version]");
+        Console.Error.WriteLine(DeskCommands.Usage);
         return 2;
 }
 
@@ -28,7 +30,8 @@ var app = App.Create()
     .WithHover()
     .WithTickRate(TimeSpan.FromSeconds(1)); // the clock
 
-var shell = new DeskShell(DeskConfig.Load(DeskConfig.DefaultDirectory()) with { StatePath = DeskState.DefaultPath() });
+var config = DeskConfig.Load(DeskConfig.DefaultDirectory(), DeskApps.DefaultDirectory(), Environment.GetEnvironmentVariable("PATH"));
+var shell = new DeskShell(config with { StatePath = DeskState.DefaultPath() });
 app.Screens.Push(shell);
 
 // The terminal going away ends the process without unwinding, so the socket goes here. MiniTui restores the terminal.

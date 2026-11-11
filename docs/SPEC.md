@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk: 4a (packages) is done, and 4b (manifests and `tuidesk add`) is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk: 4a (packages) and 4b (manifests and `tuidesk add`) are done, and 4c (the template) is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -968,9 +968,10 @@ One branch and PR each.
 - [x] Nothing is released: the first release is its own PR, when Ben says.
 
 **4b — Manifests and `tuidesk add`.** §16.4 and §16.5.
-- [ ] Notes, Tasks and Reader declare manifests, and `MINITUI_DESK_MANIFEST=1 tuinotes` prints Notes'.
-- [ ] `add`, `remove` and `apps` work as §16.5 says, including a program that doesn't answer.
-- [ ] The launcher shows added apps, `apps.json` wins on an id, and the first-party apps on `PATH` appear unadded. Reader's `Ctrl+N` reaches Notes with no `apps.json`.
+- [x] Notes, Tasks and Reader declare manifests, and `MINITUI_DESK_MANIFEST=1 tuinotes` prints Notes'.
+- [x] `add`, `remove` and `apps` work as §16.5 says, including a program that doesn't answer.
+- [x] The launcher shows added apps, `apps.json` wins on an id, and the first-party apps on `PATH` appear unadded. Reader's `Ctrl+N` reaches Notes with no `apps.json` (checked by hand in tmux with the real apps).
+- [x] Found in the doing: in a terminal, .NET writes its keypad mode before anything else, so the answer is the first JSON object on a line, not a line that starts with one. Desk keeps the first-party apps' manifests in its own table, to find them on `PATH` without running each at every start; the apps declare the same ones, so `tuidesk add tuinotes` saves what Desk would have found.
 
 **4c — The template.** §16.6.
 - [ ] `dotnet new tuidesk-app` makes a project that builds, tests, packs, installs and is added as §16.6 says, in CI.

@@ -12,7 +12,7 @@ var app = App.Create()
     .WithTheme(Theme.Dark, Theme.Light)
     .WithChrome(statusBar: true, breadcrumb: false)
     .WithMouse()
-    .WithDesk("Reader", out var desk);
+    .WithDesk("Reader", out var desk, manifest: new DeskManifest { Id = "reader", Description = "Markdown and text files, formatted to read" }); // as tuidesk lists it (spec §16.4)
 
 var reader = new ReaderScreen(
     new Places(Places.DefaultDirectory()),

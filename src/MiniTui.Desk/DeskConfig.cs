@@ -13,8 +13,27 @@ internal sealed record AppEntry
     public string[]? Args { get; init; }
     public string? Cwd { get; init; }
     public Dictionary<string, string?>? Env { get; init; }
+    public string? Description { get; init; }
 
+    /// <summary>Where the entry came from, for <c>tuidesk apps</c>.</summary>
+    [JsonIgnore]
+    public AppSource Source { get; init; }
+
+    [JsonIgnore]
     public string DisplayName => Name ?? Id ?? Command ?? "";
+}
+
+/// <summary>Where an <see cref="AppEntry"/> came from (spec §16.4).</summary>
+internal enum AppSource
+{
+    /// <summary><c>apps.json</c>, written by hand.</summary>
+    AppsJson,
+
+    /// <summary>A manifest saved by <c>tuidesk add</c>.</summary>
+    Added,
+
+    /// <summary>A first-party app found on <c>PATH</c>.</summary>
+    Found,
 }
 
 /// <summary>The contents of <c>config.json</c>.</summary>
@@ -30,9 +49,12 @@ internal sealed record ConfigFile
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     ReadCommentHandling = JsonCommentHandling.Skip,
-    AllowTrailingCommas = true)]
+    AllowTrailingCommas = true,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(ConfigFile))]
+[JsonSerializable(typeof(AppEntry))]
 [JsonSerializable(typeof(AppEntry[]))]
+[JsonSerializable(typeof(ManifestReply))]
 internal sealed partial class ConfigJson : JsonSerializerContext;
 
 /// <summary>What Desk starts with. Both files are optional, and a broken one is ignored and reported in <see cref="Errors"/>.</summary>
@@ -86,7 +108,11 @@ internal sealed record DeskConfig
         return Path.Combine(root, "tuidesk");
     }
 
-    public static DeskConfig Load(string directory)
+    /// <summary>
+    /// From <paramref name="directory"/>, with the apps <c>tuidesk add</c> saved in <paramref name="addedDirectory"/>
+    /// and the first-party apps on <paramref name="searchPath"/> (spec §16.4). Without those, only the two files.
+    /// </summary>
+    public static DeskConfig Load(string directory, string? addedDirectory = null, string? searchPath = null)
     {
         var errors = new List<string>();
         var config = new DeskConfig();
@@ -115,6 +141,7 @@ internal sealed record DeskConfig
             else
                 config = config with { Apps = apps };
         }
+        config = config with { Apps = DeskApps.Merge(config.Apps, DeskApps.LoadAdded(addedDirectory, errors), DeskApps.Found(searchPath)) };
 
         return config with { Errors = errors, ConfigDirectory = directory };
     }
@@ -149,7 +176,7 @@ internal sealed record DeskConfig
     private static KeyBinding? Key(string? name, KeyBinding? fallback) =>
         name is null ? fallback : name.Trim().Length == 0 ? null : KeyBinding.Parse(name);
 
-    private static T? Read<T>(string path, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type, List<string> errors) where T : class
+    internal static T? Read<T>(string path, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type, List<string> errors) where T : class
     {
         try
         {
