@@ -33,7 +33,9 @@ The command is the name in lowercase, `weather`, and so is the [manifest](manife
 
 ## Into Desk
 
-Install it as a tool, and add it to the launcher:
+Install it as a tool, and add it to the launcher. The binary is built with Native AOT, which needs a C toolchain:
+`sudo apt install clang zlib1g-dev` on Debian or Ubuntu, `sudo dnf install clang zlib-devel` on Fedora, and the
+[prerequisites](https://aka.ms/nativeaot-prerequisites) list the others.
 
 ```bash
 dotnet pack Weather -o nupkg                    # the top-level package
