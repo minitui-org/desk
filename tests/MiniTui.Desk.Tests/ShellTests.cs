@@ -277,7 +277,7 @@ public sealed partial class ShellTests : IDisposable
         Start();
         Until(() => Shell.Foreground is not null);
         Harness.Press("ctrl+space");
-        foreach (var key in new[] { "F1 help", "Tab switcher", "Ctrl+X close", "Ctrl+Q quit", "Ctrl+N notifications", "Ctrl+D DND", "Ctrl+S send ctrl+space", "1-9 go to" })
+        foreach (var key in new[] { "F1 help", "Tab switcher", "Ctrl+X close", "Ctrl+Q quit", "Ctrl+N notifications", "Ctrl+D DND", "Ctrl+S send Ctrl+Space", "1-9 go to" })
             Assert.Contains(key, Screen, StringComparison.Ordinal);
     }
 

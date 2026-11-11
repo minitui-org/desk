@@ -10,7 +10,7 @@ var app = App.Create()
     .WithHover()
     .WithTickRate(TimeSpan.FromSeconds(1)); // the clock
 
-var shell = new DeskShell(DeskConfig.Load(DeskConfig.DefaultDirectory()));
+var shell = new DeskShell(DeskConfig.Load(DeskConfig.DefaultDirectory()) with { StatePath = DeskState.DefaultPath() });
 app.Screens.Push(shell);
 
 // The terminal going away ends the process without unwinding, so the socket goes here. MiniTui restores the terminal.

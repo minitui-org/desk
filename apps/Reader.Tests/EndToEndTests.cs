@@ -40,11 +40,21 @@ public sealed class EndToEndTests : IDisposable
     private string Docs => _folder.Path("docs");
     private string NotePath(string name) => Path.Combine(Data, "tuinotes", name + ".md");
 
+    // Desk's state, as someone who has seen its welcome and found the prefix, so neither is in the way (spec §15)
+    private string Welcomed()
+    {
+        var state = _folder.Path("state");
+        Directory.CreateDirectory(Path.Combine(state, "tuidesk"));
+        File.WriteAllText(Path.Combine(state, "tuidesk", "state.json"), """{ "welcomed": true, "prefixUsed": true }""");
+        return state;
+    }
+
     private Dictionary<string, string?> Environment() => new()
     {
         ["XDG_DATA_HOME"] = Data,
         ["XDG_CONFIG_HOME"] = _folder.Path("config"),
         ["XDG_RUNTIME_DIR"] = _folder.Path("run"),
+        ["XDG_STATE_HOME"] = Welcomed(),
         ["MINITUI_DESK_SOCKET"] = null,
         ["MINITUI_DESK_APP_ID"] = null,
         ["HOME"] = _folder.Directory, // so paths show the same, as ~/docs

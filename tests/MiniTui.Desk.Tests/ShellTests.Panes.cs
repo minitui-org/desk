@@ -287,7 +287,7 @@ public sealed partial class ShellTests
         Harness.Press("ctrl+space");
         foreach (var key in new[] { "Ctrl+R right", "Ctrl+B below", "Ctrl+O one pane" }) Assert.Contains(key, Screen, StringComparison.Ordinal);
         Harness.Press("f1");
-        Assert.Contains("alt+j", Screen, StringComparison.Ordinal);
+        Assert.Contains("Alt+J", Screen, StringComparison.Ordinal);
         Assert.Contains("pane to the right", Screen, StringComparison.Ordinal);
     }
 
