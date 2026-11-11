@@ -300,4 +300,122 @@ public sealed partial class ShellTests
         File.WriteAllText(_files.Path("config.json"), """{ "otherPane": "" }""");
         Assert.Null(DeskConfig.Load(_files.Directory).OtherPane);
     }
+
+    // ---- Mouse (spec §14.6) ----
+
+    // The first app on the left and "two" focused on the right, each in button-event mouse mode, writing what it gets
+    private (string Left, string Right) SplitWithMouse()
+    {
+        var left = _files.Path("left");
+        var right = _files.Path("right");
+        const string Mouse = "stty raw -echo; printf '\\033[?1002h\\033[?1006h'; exec cat > ";
+        Start($"{Mouse}'{left}'", WithApps(Entry("two", $"{Mouse}'{right}'")));
+        Until(() => Shell.Foreground is not null);
+        Beside("two", "ctrl+r");
+        Until(() => Shell.Apps.Count == 2);
+        Until(() => Shell.Apps.All(a => { lock (a.Terminal.Lock) return a.Terminal.Screen.Modes.Mouse != 0; }), "mouse mode");
+        return (left, right);
+    }
+
+    private static string Got(string path) => File.Exists(path) ? File.ReadAllText(path) : "";
+
+    [Fact]
+    public void A_press_in_the_other_pane_focuses_it_and_reaches_its_app_in_its_own_coordinates()
+    {
+        var (left, right) = SplitWithMouse();
+
+        Harness.Click(4, 2);
+        Assert.Same(Shell.Apps[0], Shell.Foreground);
+        Until(() => Got(left).EndsWith('m'), "the click");
+        Assert.Equal("\u001b[<0;5;3M\u001b[<0;5;3m", Got(left));
+
+        // The right pane starts after the left's 40 columns and the divider
+        Harness.Click(45, 2);
+        Assert.Equal("two", Shell.Foreground!.Name);
+        Until(() => Got(right).EndsWith('m'), "the click");
+        Assert.Equal("\u001b[<0;5;3M\u001b[<0;5;3m", Got(right));
+    }
+
+    [Fact]
+    public void The_wheel_goes_to_the_pane_under_it_without_moving_the_focus()
+    {
+        var (left, _) = SplitWithMouse();
+
+        Harness.Mouse(new MouseEvent(MouseAction.ScrollUp, MouseButton.None, 4, 2));
+        Until(() => Got(left).EndsWith('M'), "the wheel");
+        Assert.Equal("\u001b[<64;5;3M", Got(left));
+        Assert.Equal("two", Shell.Foreground!.Name);
+    }
+
+    [Fact]
+    public void A_drag_stays_with_the_pane_it_started_in()
+    {
+        var (left, right) = SplitWithMouse();
+
+        Harness.Mouse(new MouseEvent(MouseAction.Press, MouseButton.Left, 45, 2));
+        Harness.Mouse(new MouseEvent(MouseAction.Drag, MouseButton.Left, 10, 2));
+        Harness.Mouse(new MouseEvent(MouseAction.Release, MouseButton.Left, 10, 2));
+        Until(() => Got(right).EndsWith('m'), "the release");
+        // Held to the right pane's first column
+        Assert.Equal("\u001b[<0;5;3M\u001b[<32;1;3M\u001b[<0;1;3m", Got(right));
+        Assert.Equal("", Got(left));
+        Assert.Equal("two", Shell.Foreground!.Name);
+    }
+
+    [Fact]
+    public void A_press_on_the_divider_does_nothing()
+    {
+        var (left, right) = SplitWithMouse();
+
+        Harness.Click(40, 2);
+        Harness.Mouse(new MouseEvent(MouseAction.ScrollUp, MouseButton.None, 40, 2));
+        Thread.Sleep(100);
+        Harness.RunUntilIdle();
+        Assert.Equal("two", Shell.Foreground!.Name);
+        Assert.Equal("", Got(left));
+        Assert.Equal("", Got(right));
+    }
+
+    // ---- The protocol (spec §14.7) ----
+
+    [Fact]
+    public void Focus_follows_the_focused_pane_with_a_client_in_each()
+    {
+        Start(config: WithApps(Entry("two", "exec cat")));
+        Until(() => Shell.Foreground is not null);
+        var first = Client(Front, "First");
+        Beside("two", "ctrl+r");
+        Until(() => Shell.Apps.Count == 2);
+        var two = Client(Front, "Two");
+        Until(() => !first.IsFocused, "the first to lose the focus");
+        Assert.True(two.IsFocused);
+
+        Harness.Press("alt+j");
+        Until(() => first.IsFocused && !two.IsFocused, "the focus to move left");
+
+        Harness.Click(45, 2);
+        Until(() => two.IsFocused && !first.IsFocused, "the focus to move right");
+    }
+
+    [Fact]
+    public void A_launch_while_split_takes_the_other_pane_and_the_asker_stays_in_sight()
+    {
+        var notes = new AppEntry { Id = "notes", Name = "notes", Command = _files.Script("stty size; exec cat") };
+        Start("printf first; exec cat", WithApps(notes, Entry("two", "exec cat")));
+        UntilShows("first");
+        Beside("two", "ctrl+r");
+        Until(() => Shell.Apps.Count == 2);
+        var two = Front;
+        var client = Connect(two);
+
+        Send(client, """{"type":"launch","appId":"notes"}""");
+        Until(() => Shell.Apps.Count == 3, "the launch");
+        Harness.RunUntilIdle();
+        Assert.Equal("notes-1", Front.Id);
+        Assert.Same(two, Shell.Other);
+        // In the left pane, where the first app was, at that pane's size
+        UntilShows("23 40");
+        Assert.StartsWith("23 40", Harness.Lines[0], StringComparison.Ordinal);
+        Assert.Equal((80, 23), SizeOf(Shell.Apps[0]));
+    }
 }

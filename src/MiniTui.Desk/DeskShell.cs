@@ -37,6 +37,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     private volatile HostedApp? _other;      // the app in the other pane, while there are two (spec §14)
     private bool _stacked;                   // the panes are one over the other, not side by side
     private bool _focusSecond;               // the focused app is in the right or the lower pane
+    private HostedApp? _pressed;             // the app that got the mouse press, which its drag and release go to
     private Rect _pane;                      // everything but the status line
     private Rect _focusedArea;               // where the focused app is drawn
     private Rect _otherArea;                 // and the other, or empty when it isn't showing
@@ -375,20 +376,47 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
             return true;
         }
 
-        // A drag can leave the pane, and the app still needs to see where it goes and that it ended
-        if (onStatus && mouse.Action is not (MouseAction.Drag or MouseAction.Release)) return true;
-        // The focused app's, in its pane's own coordinates
-        if (_foreground is { Failure: null } app && !_focusedArea.IsEmpty)
+        // A drag stays with the app that got the press, even out of its pane, as that app still needs to see where
+        // it goes and that it ended
+        if (mouse.Action is MouseAction.Drag or MouseAction.Release)
         {
-            var dragging = mouse.Action is MouseAction.Drag or MouseAction.Release;
-            if (!dragging && !_focusedArea.Contains(mouse.X, mouse.Y)) return true;
-            app.Terminal.HandleMouse(mouse with
-            {
-                X = Math.Clamp(mouse.X, _focusedArea.X, _focusedArea.Right - 1) - _focusedArea.X,
-                Y = Math.Clamp(mouse.Y, _focusedArea.Y, _focusedArea.Bottom - 1) - _focusedArea.Y,
-            });
+            var dragged = _pressed;
+            if (mouse.Action == MouseAction.Release) _pressed = null;
+            if (dragged is not null && Showing(dragged)) SendMouse(dragged, mouse);
+            return true;
         }
+        if (onStatus) return true;
+
+        // Otherwise the pane under the pointer's. A press there focuses it; the wheel and hovering don't.
+        if (AppAt(mouse.X, mouse.Y) is not { } app) return true;
+        if (mouse.Action == MouseAction.Press)
+        {
+            if (!ReferenceEquals(app, _foreground))
+            {
+                ChooseApp(app);
+                Arrange(); // the panes' areas swap with the focus
+            }
+            _pressed = app;
+        }
+        SendMouse(app, mouse);
         return true;
+    }
+
+    // The showing app whose pane holds the point. The divider is neither's.
+    private HostedApp? AppAt(int x, int y) =>
+        _focusedArea.Contains(x, y) ? _foreground : _otherArea.Contains(x, y) ? _other : null;
+
+    // In its pane's own coordinates, held to the pane
+    private void SendMouse(HostedApp app, MouseEvent mouse)
+    {
+        if (app.Failure is not null) return;
+        var area = ReferenceEquals(app, _foreground) ? _focusedArea : _otherArea;
+        if (area.IsEmpty) return;
+        app.Terminal.HandleMouse(mouse with
+        {
+            X = Math.Clamp(mouse.X, area.X, area.Right - 1) - area.X,
+            Y = Math.Clamp(mouse.Y, area.Y, area.Bottom - 1) - area.Y,
+        });
     }
 
     private void OnEvent(Event e)
@@ -560,6 +588,15 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         {
             ShowLauncher();
         }
+    }
+
+    // Replacing the app in the other pane, which goes out of sight, and with the focus
+    private void IntoOtherPane(AppEntry entry)
+    {
+        if (_foreground is not { } from || Start(entry, area: _otherArea.IsEmpty ? _pane : _otherArea) is not { } app) return;
+        GiveFocus(app);
+        _other = from;
+        _focusSecond = !_focusSecond;
     }
 
     private HostedApp? Start(AppEntry entry, bool reportFailure = true, Rect? area = null)

@@ -447,4 +447,30 @@ public sealed class EndToEndTests : IDisposable
         Thread.Sleep(300);
         lock (clipboard) Assert.Equal(["first"], clipboard);
     }
+
+    [Fact]
+    public void Only_the_focused_pane_can_set_the_clipboard()
+    {
+        var go = _files.Path("go");
+        var ready = _files.Path("ready");
+        Start(
+            $": > '{ready}'; while [ ! -e '{go}' ]; do sleep 0.01; done; printf '\\033]52;c;aGlkZGVu\\007'; exec cat",
+            apps: $$"""[{ "name": "two", "command": "{{_files.Script("exec cat")}}" }]""");
+        var clipboard = new List<string>();
+        Desk.ClipboardSet += text =>
+        {
+            lock (clipboard) clipboard.Add(text);
+        };
+        UntilFile(ready, _ => true);
+
+        // "two" to the right, with the focus; the first app stays on screen beside it
+        Press(Prefix);
+        UntilShows("Launch");
+        Type("two");
+        Press(new ConsoleKeyInfo('\u0012', ConsoleKey.R, false, false, true));
+        Until(() => !Text().Contains("Launch", StringComparison.Ordinal), Text);
+        File.WriteAllText(go, "");
+        Thread.Sleep(300);
+        lock (clipboard) Assert.Empty(clipboard);
+    }
 }

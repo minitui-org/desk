@@ -18,7 +18,8 @@ app, `Tab` swaps to the list of running apps, and `Esc` closes. A footer shows t
 
 Two apps can show at once. In the launcher or the switcher, `Ctrl+R` opens the selected app in a pane to the right of
 the current one and `Ctrl+B` in a pane below it, where `Enter` opens it in the current pane. `Ctrl+O` goes back to one
-pane, and the other app keeps running. There are never more than two.
+pane, and the other app keeps running. There are never more than two. A click in a pane focuses it, and an app that
+opens another, as Reader does with Notes, opens it in the other pane.
 
 Add apps to `~/.config/tuidesk/apps.json`, and set the keys or turn Do Not Disturb off in `config.json`. Set `nextApp`,
 `previousApp` or `otherPane` to `""` to give that key back to the apps:

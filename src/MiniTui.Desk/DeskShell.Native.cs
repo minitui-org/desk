@@ -144,13 +144,15 @@ internal sealed partial class DeskShell
         Add(new Notification(Now(), text) { AppId = app.Id, Id = message.Id, Source = connection, Actions = actions }, toast);
     }
 
-    // Only from the app on the screen: one in the background doesn't get to take it
+    // Only from the focused app: one in the background doesn't get to take the screen. With two panes, the new app
+    // takes the other one, so the app that asked stays in sight (spec §14.7).
     private void OnLaunch(HostedApp app, DeskMessage message)
     {
         if (!ReferenceEquals(_foreground, app) || _quitting || _quitWaiting) return;
         if (config.Apps.FirstOrDefault(e => e.Id is not null && e.Id == message.AppId) is not { } entry) return;
         string[] args = [.. entry.Args ?? [], .. (message.Args ?? []).Where(a => a is not null)];
-        Launch(entry with { Args = args });
+        if (_other is null) Launch(entry with { Args = args });
+        else IntoOtherPane(entry with { Args = args });
     }
 
     private static void SendFocus(HostedApp app, bool focused)
