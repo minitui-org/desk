@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk: 4a (packages) and 4b (manifests and `tuidesk add`) are done, and 4c (the template) is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk: 4a (packages), 4b (manifests and `tuidesk add`) and 4c (the template) are done, and 4d (docs) is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -945,8 +945,9 @@ tuidesk apps
 Weather/
   Weather.csproj            a tool: PackAsTool, ToolCommandName weather, Native AOT
   Program.cs                App.Create().WithDesk(...) with a manifest, one screen
-  WeatherScreen.cs          a list and a notification, so every Desk feature is shown once
+  MainScreen.cs             a list and a notification, so every Desk feature is shown once
   Weather.Tests/            ComponentHarness tests of the screen
+  Weather.slnx              both projects, for dotnet test
   README.md                 run it, run its tests, pack and install it, tuidesk add it
 ```
 - The command name is the project name in lowercase, and the manifest id the same, changeable with `--id`.
@@ -974,7 +975,8 @@ One branch and PR each.
 - [x] Found in the doing: in a terminal, .NET writes its keypad mode before anything else, so the answer is the first JSON object on a line, not a line that starts with one. Desk keeps the first-party apps' manifests in its own table, to find them on `PATH` without running each at every start; the apps declare the same ones, so `tuidesk add tuinotes` saves what Desk would have found.
 
 **4c — The template.** §16.6.
-- [ ] `dotnet new tuidesk-app` makes a project that builds, tests, packs, installs and is added as §16.6 says, in CI.
+- [x] `dotnet new tuidesk-app` makes a project that builds, tests, packs, installs and is added as §16.6 says, in CI. Also checked by hand inside Desk: the selection shows as its title, and Enter's notification is counted.
+- [x] Found in the doing: the screen is `MainScreen`, not named after the app, since a name such as `My.Rain` isn't an identifier; and the default id is the name in lowercase with anything else as `-` (`my-rain`). The README pins `--version` on install, as a same-named package on nuget.org would otherwise win.
 
 **4d — Docs.** §16.7.
 - [ ] The guides build without warnings in desk's CI, and the minitui site builds `/desk` from a desk tag (tried with a test tag on a branch, not deployed).

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- dotnet new tuidesk-app (spec §16.6). The template is content: nothing here is built. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <PackageId>MiniTui.Desk.Templates</PackageId>
+    <PackageType>Template</PackageType>
+    <Description>dotnet new tuidesk-app: a MiniTui app that joins MiniTui Desk, with tests, packed as a .NET tool.</Description>
+    <PackageTags>tui;terminal;minitui;desk;dotnet-new;templates</PackageTags>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- No lib/ folder, which NuGet would otherwise warn about -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="content/**/*" Exclude="content/**/bin/**;content/**/obj/**;content/**/.template.config/template.json" PackagePath="content/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- The versions the template references are the ones released with it: MiniTui's from Directory.Build.props, and
+       this repo's own -->
+  <Target Name="StampTemplateVersions" BeforeTargets="_GetPackageFiles">
+    <PropertyGroup>
+      <StampedTemplate>$(IntermediateOutputPath)template.json</StampedTemplate>
+      <TemplateText>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/content/tuidesk-app/.template.config/template.json').Replace('@MINITUI_VERSION@', '$(MiniTuiVersion)').Replace('@DESK_VERSION@', '$(Version)'))</TemplateText>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(StampedTemplate)" Lines="$([MSBuild]::Escape($(TemplateText)))" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Content Include="$(StampedTemplate)" PackagePath="content/tuidesk-app/.template.config/template.json" />
+    </ItemGroup>
+  </Target>
+
+</Project>
