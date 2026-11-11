@@ -1,0 +1,80 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../../src",
+          "files": [
+            "MiniTui.Desk.Protocol/MiniTui.Desk.Protocol.csproj",
+            "MiniTui.Vt/MiniTui.Vt.csproj"
+          ]
+        }
+      ],
+      "dest": "api",
+      "properties": {
+        "Configuration": "Release"
+      },
+      "namespaceLayout": "flattened",
+      "memberLayout": "samePage",
+      "enumSortOrder": "declaringOrder",
+      "filter": "filterConfig.yml"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "**/*.{md,yml}"
+        ],
+        "exclude": [
+          "_site/**",
+          "obj/**",
+          "apiroot/**",
+          "filterConfig.yml",
+          "README.md"
+        ]
+      },
+      {
+        "files": [
+          "index.md"
+        ],
+        "src": "apiroot",
+        "dest": "api"
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "images/**"
+        ]
+      }
+    ],
+    "output": "_site",
+    "template": [
+      "default",
+      "modern"
+    ],
+    "xref": [
+      "https://minitui.org/xrefmap.yml"
+    ],
+    "globalMetadata": {
+      "_appName": "MiniTui Desk",
+      "_appTitle": "MiniTui Desk",
+      "_appFooter": "\u00a9 2026 Discover Edge LLC \u00b7 MIT licensed \u00b7 <a href=\"https://minitui.org\">MiniTui</a> \u00b7 <a href=\"https://github.com/minitui-org/desk\">GitHub</a>",
+      "_enableSearch": true,
+      "_disableContribution": false,
+      "_gitContribute": {
+        "repo": "https://github.com/minitui-org/desk",
+        "branch": "main"
+      },
+      "pdf": false,
+      "_appLogoPath": "images/logo.svg",
+      "_appFaviconPath": "images/favicon.svg"
+    },
+    "sitemap": {
+      "baseUrl": "https://minitui.org/desk",
+      "changefreq": "weekly"
+    }
+  }
+}

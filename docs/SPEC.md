@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk: 4a (packages), 4b (manifests and `tuidesk add`) and 4c (the template) are done, and 4d (docs) is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk: 4a (packages), 4b (manifests and `tuidesk add`), 4c (the template) and 4d (docs) are done, and the phase exit is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -979,7 +979,8 @@ One branch and PR each.
 - [x] Found in the doing: the screen is `MainScreen`, not named after the app, since a name such as `My.Rain` isn't an identifier; and the default id is the name in lowercase with anything else as `-` (`my-rain`). The README pins `--version` on install, as a same-named package on nuget.org would otherwise win.
 
 **4d — Docs.** §16.7.
-- [ ] The guides build without warnings in desk's CI, and the minitui site builds `/desk` from a desk tag (tried with a test tag on a branch, not deployed).
+- [x] The guides build without warnings in desk's CI, and the minitui site builds `/desk` from a desk tag (tried with a test tag on a branch, not deployed).
+- [x] Found in the doing: the site build uses desk's own `docfx.json` with the minitui template added, so desk's CI builds what the site does, and the API pages link `MiniTui` types through minitui.org's xref map. The menu's `Desk` entry is added by the workflow when there's a tag, so the site has no dead link before the first release. The guides' Python client and manifest were run against Desk.
 
 **Phase exit:** Ben, on a machine or container with only the .NET SDK, follows `minitui.org/desk` from nothing: installs Desk and Notes, makes an app with the template, adds it, and sees its name and a notification in Desk.
 
