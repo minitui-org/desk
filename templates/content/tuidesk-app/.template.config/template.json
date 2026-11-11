@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Discover Edge LLC",
+  "classifications": [
+    "Console",
+    "TUI",
+    "MiniTui",
+    "Desk"
+  ],
+  "identity": "MiniTui.Desk.Templates.App",
+  "name": "MiniTui Desk app",
+  "description": "A MiniTui app that joins MiniTui Desk, with tests, packed as a .NET tool with a Native AOT binary per platform.",
+  "shortName": "tuidesk-app",
+  "sourceName": "MyApp",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "solution"
+  },
+  "symbols": {
+    "id": {
+      "type": "parameter",
+      "datatype": "string",
+      "description": "The id Desk lists the app by and other apps launch it by: lowercase letters, digits and -. By default, the name in lowercase, with anything else as -."
+    },
+    "lowerName": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "lowerCase",
+      "replaces": "myapp"
+    },
+    "defaultId": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "idForm"
+    },
+    "appId": {
+      "type": "generated",
+      "generator": "coalesce",
+      "parameters": {
+        "sourceVariableName": "id",
+        "fallbackVariableName": "defaultId"
+      },
+      "replaces": "my-app-id"
+    },
+    "miniTuiVersion": {
+      "type": "generated",
+      "generator": "constant",
+      "parameters": {
+        "value": "@MINITUI_VERSION@"
+      },
+      "replaces": "MINITUI_VERSION"
+    },
+    "deskVersion": {
+      "type": "generated",
+      "generator": "constant",
+      "parameters": {
+        "value": "@DESK_VERSION@"
+      },
+      "replaces": "DESK_VERSION"
+    }
+  },
+  "forms": {
+    "lowerCase": {
+      "identifier": "lowerCase"
+    },
+    "idSafe": {
+      "identifier": "replace",
+      "pattern": "[^a-z0-9-]",
+      "replacement": "-"
+    },
+    "idForm": {
+      "identifier": "chain",
+      "steps": [
+        "lowerCase",
+        "idSafe"
+      ]
+    }
+  }
+}

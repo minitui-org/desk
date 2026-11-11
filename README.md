@@ -17,7 +17,11 @@ dotnet tool install -g MiniTui.Desk         # tuidesk
 dotnet tool install -g MiniTui.Desk.Notes   # tuinotes, and .Tasks and .Reader likewise
 ```
 
-`tools/pack.sh <folder> any` packs the libraries and the tools' top-level packages, and `tools/pack.sh <folder>
+To make an app for Desk, `dotnet new install MiniTui.Desk.Templates`, then `dotnet new tuidesk-app -n Weather`: a
+MiniTui app with `WithDesk` and a manifest, tests with `ComponentHarness`, and packing as a tool, with a README that
+says how to install it and `tuidesk add` it. The template is in [`templates/`](templates/content/tuidesk-app).
+
+`tools/pack.sh <folder> any` packs the libraries, the template and the tools' top-level packages, and `tools/pack.sh <folder>
 linux-x64` each tool's binary for that platform, which has to be built on it. `dotnet tool install MiniTui.Desk
 --tool-path <dir> --add-source <folder>` then installs from the folder.
 

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsAotCompatible>true</IsAotCompatible>
+
+    <!-- A .NET tool: dotnet tool install -g MyApp, then run myapp. Each platform's package holds a Native AOT binary,
+         which has to be packed on that platform: dotnet pack, then dotnet pack -r linux-x64. -->
+    <AssemblyName>myapp</AssemblyName>
+    <RootNamespace>MyApp</RootNamespace>
+    <PackageId>MyApp</PackageId>
+    <Version>0.1.0</Version>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>myapp</ToolCommandName>
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MiniTui" Version="MINITUI_VERSION" />
+    <PackageReference Include="MiniTui.Desk.Protocol" Version="DESK_VERSION" />
+    <InternalsVisibleTo Include="MyApp.Tests" />
+  </ItemGroup>
+
+</Project>

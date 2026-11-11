@@ -45,6 +45,24 @@ jobs:
           dotnet tool install MiniTui.Desk --tool-path tool --add-source nupkg --version 0.0.0-ci.${{ github.run_number }}
           test "$(./tool/tuidesk --version)" = 0.0.0-ci.${{ github.run_number }}
 
+      # dotnet new tuidesk-app, from the packed template, outside the repo so none of its settings apply (spec §16.6):
+      # it builds, tests, packs and installs, and tuidesk add reads its manifest
+      - name: The template
+        run: |
+          hive="$RUNNER_TEMP/hive"
+          dotnet new install nupkg/MiniTui.Desk.Templates.0.0.0-ci.${{ github.run_number }}.nupkg --debug:custom-hive "$hive"
+          cd "$RUNNER_TEMP"
+          dotnet new tuidesk-app -n Weather --debug:custom-hive "$hive"
+          cd Weather
+          feed="-p:RestoreAdditionalProjectSources=$GITHUB_WORKSPACE/nupkg"
+          dotnet build -warnaserror "$feed"
+          dotnet test --no-build
+          dotnet pack Weather -o nupkg "$feed"
+          dotnet pack Weather -r linux-x64 -o nupkg "$feed"
+          dotnet tool install Weather --tool-path tool --add-source nupkg --version 0.1.0
+          XDG_DATA_HOME="$RUNNER_TEMP/data" "$GITHUB_WORKSPACE/tool/tuidesk" add "$PWD/tool/weather" | tee added
+          grep -q "Added weather: Weather" added
+
   # The arm64 tools are built on arm64, as Native AOT needs
   arm64:
     runs-on: ubuntu-24.04-arm
