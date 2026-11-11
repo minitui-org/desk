@@ -26,6 +26,9 @@ says how to install it and `tuidesk add` it. The template is in [`templates/`](t
 linux-x64` each tool's binary for that platform, which has to be built on it. `dotnet tool install MiniTui.Desk
 --tool-path <dir> --add-source <folder>` then installs from the folder.
 
+`tools/clean-machine/Dockerfile` is a machine with only the .NET SDK, for following [minitui.org/desk](https://minitui.org/desk)
+from the start: `docker build -t desk-clean tools/clean-machine`, then `docker run -it --rm desk-clean`.
+
 Every key goes to the app except `Ctrl+Space`, which opens the launcher, and `Alt+H` and `Alt+L`, which go to the
 previous and the next running app, in the order the status line lists them. `Alt+J` goes to the other pane when two apps are
 showing. In the launcher, type to filter and press `Enter` to start an

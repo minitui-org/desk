@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `tools/clean-machine/Dockerfile`: a machine with only the .NET SDK and an ordinary user, for following minitui.org/desk from nothing.
+
 ## [0.1.0] - 2026-11-11
 
 The first release of MiniTui Desk: `tuidesk`, Notes, Tasks and Reader as .NET tools for Linux on x64 and arm64, the `MiniTui.Desk.Protocol` and `MiniTui.Vt` libraries, and the `tuidesk-app` template. Guides at [minitui.org/desk](https://minitui.org/desk).
