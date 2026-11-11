@@ -67,6 +67,12 @@ internal sealed record DeskConfig
     /// <summary>Where the socket for native apps goes, or null for <see cref="DeskServer.DefaultDirectory"/>.</summary>
     public string? RuntimeDirectory { get; init; }
 
+    /// <summary>Where <c>config.json</c> and <c>apps.json</c> are, or null for <see cref="DefaultDirectory"/>.</summary>
+    public string? ConfigDirectory { get; init; }
+
+    /// <summary>What's been seen of the way in (spec §15.6), or null to keep nothing and show none of it.</summary>
+    public string? StatePath { get; init; }
+
     /// <summary>How long an app gets to end after a hangup before it's killed.</summary>
     public TimeSpan CloseTimeout { get; init; } = TimeSpan.FromSeconds(3);
 
@@ -110,7 +116,7 @@ internal sealed record DeskConfig
                 config = config with { Apps = apps };
         }
 
-        return config with { Errors = errors };
+        return config with { Errors = errors, ConfigDirectory = directory };
     }
 
     /// <summary>
@@ -157,6 +163,13 @@ internal sealed record DeskConfig
             errors.Add($"{Path.GetFileName(path)} ignored: {e.Message}");
             return null;
         }
+    }
+
+    /// <summary><paramref name="path"/> with <c>~</c> for the home directory, to show.</summary>
+    public static string ShortenHome(string path)
+    {
+        var home = Home().TrimEnd('/');
+        return home.Length > 0 && (path == home || path.StartsWith(home + "/", StringComparison.Ordinal)) ? "~" + path[home.Length..] : path;
     }
 
     private static string ExpandHome(string path) =>

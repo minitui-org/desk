@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14): 14a and 14b are done, and the phase exit (a working session) is next, then finding your way in (§15), before Phase 4. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -411,7 +411,7 @@ examples/MiniTui.Vt.Example/  a shell in a pane of an ordinary MiniTui app
 - Nothing is published in Phase 1.
 
 ### 12.3 Screen and keys
-The top rows are the foreground app, full width. The last row is the status line: the running apps, notification count, clock. Do Not Disturb shows as a muted marker. Each app shows its number for `1`–`9` and its name, and the current one is highlighted in the selection style with its title (OSC 0/2) after its name. The title is cut to leave room for the others, and if even their names don't fit, only the current app shows. A message (closing, waiting to quit, how an app ended, asked to quit) takes the apps' place while it applies.
+The top rows are the foreground app, full width. The last row is the status line: the running apps, notification count, clock. Do Not Disturb shows as a marker, `DND`, in the status line's own color (the muted style was tried first: in the default theme it's the status bar's background). Each app shows its number for `1`–`9` and its name, and the current one is highlighted in the selection style with its title (OSC 0/2) after its name. The title is cut to leave room for the others, and if even their names don't fit, only the current app shows. A message (closing, waiting to quit, how an app ended, asked to quit) takes the apps' place while it applies.
 
 Every key goes to the foreground app except three. The prefix, `Ctrl+Space` by default, opens the launcher (§12.4). `Alt+L` and `Alt+H` go to the next and the previous running app, in the status line's order and around its ends; with one app they do nothing, and the app still doesn't get them. They aren't taken while a list or a dialog is open.
 
@@ -853,7 +853,7 @@ Someone opening Desk for the first time sees a shell and a status line with `1 S
 | 4 | Where is "already seen" kept? | **Default, not asked: a state file**, `$XDG_STATE_HOME/tuidesk/state.json` (`~/.local/state/tuidesk`), since it isn't config the user writes |
 
 ### 15.3 The hint
-- On the right of the status line, before the notification count: the prefix's name and `menu`, muted, built from `prefix` in `config.json` (`Ctrl+Space menu`).
+- On the right of the status line, before the notification count: the prefix's name and `menu`, in the status line's own color, built from `prefix` in `config.json` (`Ctrl+Space menu`). Muted was specced first, and couldn't be seen: in the default theme it's the status bar's background, which had hidden the `DND` marker since Phase 1 too.
 - It shows until the prefix is pressed for the first time, ever. A click on the status line, which opens the switcher, doesn't count.
 - When the line is short of room, the hint goes before the apps do (§12.3).
 
@@ -876,11 +876,12 @@ Help (§12.3) adds the config paths, with `~` for the home directory, after the 
 
 ### 15.7 Acceptance
 One branch and PR.
-- [ ] With no state file, the welcome shows on start, names the configured keys and paths, and closes with `Enter` or `Esc`. It doesn't show on the next start.
-- [ ] The hint shows the configured prefix until the prefix is pressed, and not after a restart. A click on the status line leaves it.
-- [ ] On a narrow screen, the hint goes before the apps' names.
-- [ ] Help lists the config paths.
-- [ ] A broken or unwritable state file doesn't stop Desk.
+- [x] With no state file, the welcome shows on start, names the configured keys and paths, and closes with `Enter` or `Esc`. It doesn't show on the next start.
+- [x] The hint shows the configured prefix until the prefix is pressed, and not after a restart. A click on the status line leaves it.
+- [x] On a narrow screen, the hint goes before the apps' names.
+- [x] Help lists the config paths.
+- [x] A broken or unwritable state file doesn't stop Desk.
+- [x] Keys Desk shows from `config.json` are written as help writes the others, `Ctrl+Space` and `Alt+L`, rather than as configured, `ctrl+space`. Help's opening paragraph became a table of the keys taken from apps, like the welcome's.
 
 ### 15.8 Out of scope
 A settings or key-binding editor (decision 3), a tour, and tips that rotate.

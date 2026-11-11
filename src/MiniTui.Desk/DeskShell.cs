@@ -27,6 +27,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     private const int MinPaneWidth = 20;
     private const int MinPaneHeight = 5;
 
+    private readonly DeskState _state = DeskState.Load(config.StatePath);
     private readonly List<HostedApp> _apps = [];     // positions, for 1-9
     private readonly List<(int Start, int End, HostedApp App)> _statusApps = []; // where each app is on the status line
     private readonly List<HostedApp> _recent = [];   // most recently used first
@@ -112,6 +113,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         {
             _started = true;
             StartFirstApp();
+            if (!_state.Welcomed) App.Post(ShowWelcome);
         }
         Arrange();
 
@@ -129,7 +131,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         }
         else if (_foreground is null && !_quitting && !pane.IsEmpty)
         {
-            buf.SetString(pane.X, pane.Y, $"No apps. {config.Prefix} starts one, or Ctrl+Q there quits.", Theme.Current.TextMuted, pane.Width);
+            buf.SetString(pane.X, pane.Y, $"No apps. {Named(config.Prefix)} starts one, or Ctrl+Q there quits.", Theme.Current.TextMuted, pane.Width);
         }
 
         if (area.Height > 0) DrawStatus(buf, new Rect(area.X, area.Bottom - 1, area.Width, 1));
@@ -206,16 +208,22 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
     private void DrawStatus(CellBuffer buf, Rect row)
     {
         var right = new List<Span>();
+        // Until the prefix has been found, the way to it (spec §15.3)
+        Span? hint = _state.PrefixUsed ? (Span?)null : new Span(Named(config.Prefix) + " menu  ", default);
         if (Unread is > 0 and var unread) right.Add(new Span(unread.ToString(CultureInfo.InvariantCulture) + " new  ", default));
-        if (_doNotDisturb) right.Add(new Span("DND  ", Theme.Current.TextMuted));
+        if (_doNotDisturb) right.Add(new Span("DND  ", default));
         right.Add(new Span(Now().ToString("HH:mm", CultureInfo.InvariantCulture), default));
+        _statusApps.Clear();
+        var message = StatusMessage();
+        // The hint goes before the apps' names do
+        if (hint is { } shown && Room(right.Prepend(shown)) >= (message is null ? AppsWidth() : UnicodeWidth.Of(message))) right.Insert(0, shown);
         var rightLine = new Line(right);
+        var room = Room(right);
+        var left = message is not null ? new Line(message) : AppsLine(row.X + 1, room);
+        new StatusBarBuilder().Left(left).Right(rightLine).Draw(buf, row);
 
         // The bar's own padding, the right side and the gap before it
-        var room = row.Width - 2 - (rightLine.Width > 0 ? rightLine.Width + 1 : 0);
-        _statusApps.Clear();
-        var left = StatusMessage() is { } message ? new Line(message) : AppsLine(row.X + 1, room);
-        new StatusBarBuilder().Left(left).Right(rightLine).Draw(buf, row);
+        int Room(IEnumerable<Span> spans) => new Line(spans.ToList()) is { Width: var width } ? row.Width - 2 - (width > 0 ? width + 1 : 0) : 0;
     }
 
     // What the status line says in place of the apps, while something needs saying
@@ -228,6 +236,9 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         if (app.QuitAsked) return $"Asked {OneLine(app.Name)} to quit, Ctrl+X again to force";
         return null;
     }
+
+    // What the apps' names take, without the current one's title
+    private int AppsWidth() => _apps.Select((app, i) => (i < 9 ? $"{i + 1} " : "") + OneLine(app.Name)).Sum(l => UnicodeWidth.Of(l) + 2);
 
     // Each app by its number for 1-9, the current one highlighted with its title. The title is cut to fit the others,
     // and when even their names don't fit, only the current app shows.
@@ -286,6 +297,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
 
         if (config.Prefix.Matches(key))
         {
+            _state.MarkPrefixUsed();
             ShowLauncher();
             return true;
         }
@@ -481,7 +493,7 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
         string[] footer =
         [
             "F1 help", swapHint, "Ctrl+X close", "Ctrl+R right", "Ctrl+B below", "Ctrl+O one pane", "Ctrl+Q quit",
-            "Ctrl+N notifications", "Ctrl+D DND", $"Ctrl+S send {config.Prefix}", "1-9 go to",
+            "Ctrl+N notifications", "Ctrl+D DND", $"Ctrl+S send {Named(config.Prefix)}", "1-9 go to",
         ];
         App.Overlays.Show(new AppListOverlay(title, rows, selected, choose, swap, footer) { TakesShellCommands = true, Beside = beside });
     }
@@ -510,12 +522,14 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
 
     private void ShowHelp()
     {
-        var prefix = config.Prefix.ToString();
+        var prefix = Named(config.Prefix);
         _ = App.Overlays.ShowMessageAsync("Keys", Text.From($"""
-            Every key goes to the app, except {prefix}, which opens the launcher,
-            and {Named(config.PreviousApp)} and {Named(config.NextApp)}, which go to the previous and the next
-            running app, in the status line's order, and {Named(config.OtherPane)}, which goes to
-            the other pane when there are two.
+            Every key goes to the app, except:
+
+            {prefix,-13}Opens the launcher
+            {Named(config.PreviousApp) + " " + Named(config.NextApp),-13}The previous and the next app, in the status line's order
+            {Named(config.OtherPane),-13}The other pane, when there are two
+
             In the launcher and the switcher:
 
             Tab         Swap between them
@@ -531,10 +545,38 @@ internal sealed partial class DeskShell(DeskConfig config, TimeProvider? time = 
             Ctrl+S      Send {prefix} to the app
             F1          This help
             Esc         Close, as {prefix} does
+
+            Settings: {ConfigPaths()}
             """));
     }
 
-    private static string Named(KeyBinding? key) => key?.ToString() ?? "(no key)";
+    private string ConfigPaths()
+    {
+        var directory = DeskConfig.ShortenHome(config.ConfigDirectory ?? DeskConfig.DefaultDirectory());
+        return $"{directory}/config.json and apps.json";
+    }
+
+    // The first start, ever (spec §15.4)
+    private void ShowWelcome()
+    {
+        _state.MarkWelcomed();
+        var prefix = Named(config.Prefix);
+        _ = App.Overlays.ShowMessageAsync("Welcome to Desk", Text.From($"""
+            Every key goes to the app on the screen, except a few:
+
+            {prefix,-13}Opens the launcher, to start, switch, split and quit apps.
+            {"",-13}F1 there lists every key.
+            {Named(config.PreviousApp) + " " + Named(config.NextApp),-13}The previous and the next app
+            {Named(config.OtherPane),-13}The other pane, when two apps are showing
+
+            Settings: {ConfigPaths()}
+            """));
+    }
+
+    // As help writes keys, Ctrl+Space and Alt+L, from the binding's ctrl+space and alt+l
+    private static string Named(KeyBinding? key) => key is null
+        ? "(no key)"
+        : string.Join('+', (key.ToString() ?? "").Split('+').Select(part => part.Length > 0 ? char.ToUpperInvariant(part[0]) + part[1..] : part));
 
     private void AskToQuit()
     {

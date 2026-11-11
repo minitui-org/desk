@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Finding your way in (spec §15): on the first start, a welcome lists the keys Desk takes from apps and where the config files are, and the status line says `Ctrl+Space menu` until the prefix is first pressed. Both are remembered in `~/.local/state/tuidesk/state.json` (`$XDG_STATE_HOME`), so they don't come back; delete it to see them again. Help ends with the config paths, and Desk writes configured keys as `Ctrl+Space` rather than `ctrl+space`.
+
+### Fixed
+- The status line's `DND` marker couldn't be seen in the default theme: it was in the muted color, the status bar's own background. It's now in the bar's text color.
 - Two panes, the mouse and native apps (spec §14, 14b): a click in the other pane focuses it and reaches its app, the wheel scrolls the pane under it without moving the focus, and a drag stays with the pane it started in. A native app's `launch` while split opens in the other pane, so Reader stays on screen while Notes takes the passage. Only the focused pane's app can set the clipboard, and `focus` follows the focused pane.
 - Two panes (spec §14, 14a): in the launcher or the switcher, `Ctrl+R` opens the selected app to the right of the current one and `Ctrl+B` below it, and `Ctrl+O` goes back to one pane. `Alt+J` focuses the other pane (`otherPane` in `config.json`), and `Alt+H` and `Alt+L` change the app in the focused one. Each app is resized to its pane. When one of the two closes, the other fills the screen, and a screen too small for two shows the focused one. The status line marks the other pane's app bold and underlined, and the lists' footer is three rows.
 - The spec for two panes (`docs/SPEC.md` §14): a second app beside or below the first, and no more than two.

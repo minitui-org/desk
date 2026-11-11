@@ -24,10 +24,13 @@ public sealed class EndToEndTests : IDisposable
         _files.Dispose();
     }
 
-    private void Start(string shellBody, int width = 80, int height = 24, string? apps = null, Color? background = null)
+    // As someone who has seen the welcome and found the prefix, unless it's their first run (spec §15)
+    private void Start(string shellBody, int width = 80, int height = 24, string? apps = null, Color? background = null, bool firstRun = false)
     {
         var config = Directory.CreateDirectory(_files.Path("config/tuidesk")).FullName;
         if (apps is not null) File.WriteAllText(Path.Combine(config, "apps.json"), apps);
+        var state = Directory.CreateDirectory(_files.Path("state/tuidesk")).FullName;
+        if (!firstRun) File.WriteAllText(Path.Combine(state, "state.json"), """{ "welcomed": true, "prefixUsed": true }""");
         _desk = VtTerminal.Start(new VtStartInfo(Path.Combine(AppContext.BaseDirectory, "tuidesk"))
         {
             Width = width,
@@ -36,6 +39,7 @@ public sealed class EndToEndTests : IDisposable
             {
                 ["XDG_CONFIG_HOME"] = _files.Path("config"),
                 ["XDG_RUNTIME_DIR"] = _files.Path("run"),
+                ["XDG_STATE_HOME"] = _files.Path("state"),
                 ["SHELL"] = _files.Script(shellBody),
             },
         }, terminal =>
@@ -472,5 +476,18 @@ public sealed class EndToEndTests : IDisposable
         File.WriteAllText(go, "");
         Thread.Sleep(300);
         lock (clipboard) Assert.Empty(clipboard);
+    }
+
+    // ---- First run (spec §15) ----
+
+    [Fact]
+    public void The_first_run_welcomes_and_remembers_it()
+    {
+        Start("exec cat", firstRun: true);
+        UntilShows("Welcome to Desk");
+        Assert.Contains("Ctrl+Space menu", Rows()[^1], StringComparison.Ordinal);
+        Press(Key('\u001b', ConsoleKey.Escape));
+        Until(() => !Text().Contains("Welcome", StringComparison.Ordinal), Text);
+        UntilFile(_files.Path("state/tuidesk/state.json"), text => text.Contains("\"welcomed\":true", StringComparison.Ordinal));
     }
 }

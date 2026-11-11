@@ -15,6 +15,8 @@ previous and the next running app, in the order the status line lists them. `Alt
 showing. In the launcher, type to filter and press `Enter` to start an
 app, `Tab` swaps to the list of running apps, and `Esc` closes. A footer shows the commands: `Ctrl+X` closes the app,
 `Ctrl+Q` quits, and `F1` lists the rest.
+The first time Desk starts, a welcome lists these keys, and the status line shows `Ctrl+Space menu` until you
+first press it. To see them again, delete `~/.local/state/tuidesk/state.json`.
 
 Two apps can show at once. In the launcher or the switcher, `Ctrl+R` opens the selected app in a pane to the right of
 the current one and `Ctrl+B` in a pane below it, where `Enter` opens it in the current pane. `Ctrl+O` goes back to one
