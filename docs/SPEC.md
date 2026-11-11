@@ -1,6 +1,6 @@
 # MiniTui Desk — Spec v0 (handoff)
 
-Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 is next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
+Status: Phases 0, 1 (§12) and 2 (§13) done. Two panes (§14) are built, with the phase exit (a working session) to come. Finding your way in (§15) is done. Phase 4 (§16), the SDK and installing Desk, is specced and next. Captures decisions from the design discussion of 2026-11-05, corrected against MiniTui 2.1.0 and a PTY spike (§11.1).
 Audience: Claude Code (implementation) and Ben (owner). Write specs per phase before code, as with `docs/SPEC-1.x.md` in the MiniTui repo.
 
 ---
@@ -136,9 +136,11 @@ Each phase gets its own spec section before implementation begins, with acceptan
 - Boot to `tuidesk` from a TTY, for example via a systemd unit.
 - This is the highest-risk phase. Start it only once Phases 1 and 2 have proven the concept. C# P/Invoke is the default; a thin Rust layer is an acceptable alternative if P/Invoke becomes painful.
 
-**Phase 4 — SDK as a product**
+**Phase 4 — SDK as a product** (full spec: §16)
+- Desk, the first-party apps and the protocol package published, and Desk installed as a .NET tool.
 - `dotnet new` template for a Desk-aware MiniTui app.
-- An app manifest format, docs at `minitui.org/desk`, and examples.
+- An app manifest format and `tuidesk add`, docs at `minitui.org/desk`, and examples.
+- Exit: Ben follows the docs from nothing on a clean machine, to his own app in Desk.
 
 ## 7. MiniTui core: required changes and guardrails
 
@@ -885,3 +887,102 @@ One branch and PR.
 
 ### 15.8 Out of scope
 A settings or key-binding editor (decision 3), a tour, and tips that rotate.
+
+## 16. SDK as a product (Phase 4)
+
+### 16.1 Purpose
+Phase 2 proved that a MiniTui app joins Desk with one call. Phase 4 makes that something a developer outside this repo can do: install Desk, make an app from a template, add it to the launcher, and read how on `minitui.org/desk`. Today none of that is possible. Nothing is published, Desk only builds from source, and an app reaches the launcher only through a hand-written `apps.json` entry whose id happens to match what other apps `launch`.
+
+### 16.2 Decisions
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Does Phase 4 make Desk installable, or only the SDK? | **Asked: Desk too.** "Write an app, see it in Desk" has to work without cloning this repo |
+| 2 | How are Desk and the first-party apps installed? | **Asked: as .NET tools**, one each, from NuGet: `dotnet tool install -g MiniTui.Desk`. .NET 10's platform-specific tool packages carry a Native AOT binary per runtime. App developers have the SDK already. Release binaries for people without .NET are out of scope (§16.10) |
+| 3 | How does an installed app get into the launcher? | **Asked: `tuidesk add <command>`.** The app describes itself through the protocol package, and `add` saves that as a manifest. It works however the app was installed, and nothing joins the launcher unless added. The first-party apps are found on `PATH` without it |
+| 4 | Where does the template live? | **Asked: the desk repo**, as `MiniTui.Desk.Templates`, versioned with the protocol package. MiniTui core doesn't change. A plain MiniTui template can be proposed there on its own merits |
+| 5 | Where are the docs written? | **Asked: in the desk repo**, beside the code and in the same PRs. The minitui site builds them under `/desk` from desk's latest release tag (minitui.org is the `minitui` repo's Pages site, so a site of desk's own couldn't be at `/desk`) |
+| 6 | Package ids? | **Default, not asked: the brand table's (§2).** `MiniTui.Desk.Protocol`, `MiniTui.Vt`, `MiniTui.Desk.Templates`, and the tools `MiniTui.Desk` (`tuidesk`), `MiniTui.Desk.Notes` (`tuinotes`), `MiniTui.Desk.Tasks` (`tuitasks`), `MiniTui.Desk.Reader` (`tuireader`) |
+| 7 | Versions? | **Default, not asked: one version for every package in the repo**, starting at `0.1.0` (§9 decision 5), in the root `Directory.Build.props` |
+| 8 | Is `MiniTui.Vt` published? | **Default, not asked: yes, at 0.x.** It has standalone value (§5.2), and the embedded-shell example needs it. Moving it to the minitui repo later (§9 decision 2) keeps the id |
+
+### 16.3 Packages and release
+- `MiniTui.Desk.Protocol` and `MiniTui.Vt` become packable libraries, with the package README, icon, license and SourceLink that `MiniTui` has. Their PublicAPI files move to Shipped at the first release.
+- Each tool project sets `PackAsTool`, `ToolCommandName` and Native AOT, with packages for `linux-x64` and `linux-arm64`. If .NET 10's platform-specific tools don't work as documented, 4a stops and the fallback is a new decision.
+- `MiniTui.Desk.Protocol` stays `net10.0` and depends on `MiniTui` only. The tools depend on the `MiniTui` version in `Directory.Build.props`.
+- **Release:** as in the minitui repo. A dated CHANGELOG section, a `vX.Y.Z` tag pushed by Ben, and `publish.yml` packs everything and pushes it to GitHub Packages, and to nuget.org through trusted publishing once the repo has a `NUGET_USER` variable. That needs a trusted-publishing policy on nuget.org for `minitui-org/desk`, which only Ben can add.
+- CI packs on every pull request, installs the `tuidesk` tool from the local packages into a scratch tool path, and runs `tuidesk --version`.
+
+### 16.4 Manifests
+An app's manifest says how Desk shows and finds it:
+
+```json
+{ "id": "notes", "name": "Notes", "description": "Markdown notes in plain files", "command": "tuinotes", "args": [] }
+```
+
+- **The app declares it** in code: `WithDesk("Notes", out var desk, manifest: new DeskManifest { Id = "notes", Description = "..." })`. `name` is `WithDesk`'s, and `version` its version.
+- **Manifest mode:** with `MINITUI_DESK_MANIFEST=1` in the environment, `WithDesk` writes the manifest as one line of JSON to stdout and exits 0, before the app touches the terminal. An app without a manifest writes `{ "name": ... }` only.
+- **Where they're kept:** `$XDG_DATA_HOME/tuidesk/apps/<id>.json` (`~/.local/share/tuidesk/apps`), one file per app, read at startup with `apps.json`. On the same id, `apps.json` wins, so a hand-written entry always overrides.
+- **Ids:** lowercase letters, digits and `-`. `shell` is reserved. A broken manifest is skipped with a notification, as a broken `apps.json` is (§12.7).
+- **First-party apps:** `tuinotes`, `tuitasks` and `tuireader` on `PATH` are in the launcher, with their manifests, without being added. An entry or manifest with the same id replaces them.
+
+### 16.5 `tuidesk add`, `remove` and `apps`
+```
+tuidesk add <command> [--id <id>] [--name <name>] [-- <args>...]
+tuidesk remove <id>
+tuidesk apps
+```
+- **`add`** runs `<command>` in manifest mode, with stdin from `/dev/null`, no terminal, and 3 seconds to answer, and saves what it says, with `command` as typed (so it still resolves through `PATH` after a tool update). `--id`, `--name` and the args after `--` override it. A program that doesn't answer, such as `htop`, needs `--id` and `--name`, and is then added as a plain PTY app. An id already added is replaced, saying so.
+- **`remove`** deletes a manifest that `add` saved. An `apps.json` entry isn't touched: it says to edit the file.
+- **`apps`** lists every app the launcher would show, with its id, name, command and where it came from (`apps.json`, added, or found on `PATH`).
+- Each prints one line and exits non-zero on failure. None of them needs a terminal or starts the shell.
+- A running Desk picks up changes at its next start. Reloading while it runs is out of scope.
+
+### 16.6 The template
+`dotnet new install MiniTui.Desk.Templates`, then `dotnet new tuidesk-app -n Weather` makes:
+
+```
+Weather/
+  Weather.csproj            a tool: PackAsTool, ToolCommandName weather, Native AOT
+  Program.cs                App.Create().WithDesk(...) with a manifest, one screen
+  WeatherScreen.cs          a list and a notification, so every Desk feature is shown once
+  Weather.Tests/            ComponentHarness tests of the screen
+  README.md                 run it, run its tests, pack and install it, tuidesk add it
+```
+- The command name is the project name in lowercase, and the manifest id the same, changeable with `--id`.
+- It references `MiniTui` and `MiniTui.Desk.Protocol` at the versions released with the template.
+- It builds with `-warnaserror` and its tests pass as generated. CI instantiates it, builds, tests, packs and installs it, and checks `tuidesk add` reads its manifest.
+
+### 16.7 Docs
+- **Written in** `docs/site/` in this repo: using Desk (install, keys, panes, config, `add`), writing an app (the template, `WithDesk`, notifications, `launch`, behaving the same outside Desk), the manifest, and the protocol (§8, for clients in other languages).
+- **Built by** the minitui site workflow, which checks out desk at its latest `v*` tag and builds the guides, plus API reference for `MiniTui.Desk.Protocol` and `MiniTui.Vt`, under `/desk`. A desk release is followed by running that workflow by hand: a tag in one repo can't start a workflow in the other without a token, which isn't worth keeping for this. Before desk's first release there's no tag, and the site has no `/desk`.
+- The minitui repo's change is a workflow and a toc entry, justified as hosting docs (§2), not a core change.
+- `docfx --warningsAsErrors` runs over `docs/site/` in desk's CI, so a broken link fails the pull request here, not at the next site build.
+
+### 16.8 Sub-phases and acceptance
+One branch and PR each.
+
+**4a — Packages and the tools.** §16.3.
+- [ ] `dotnet pack` makes the two libraries and four tools, at the repo's version, and the tools install from a local folder and run on linux-x64 as Native AOT.
+- [ ] `publish.yml` pushes on a tag, and CI packs and smoke-tests the tool on every pull request.
+- [ ] Nothing is released: the first release is its own PR, when Ben says.
+
+**4b — Manifests and `tuidesk add`.** §16.4 and §16.5.
+- [ ] Notes, Tasks and Reader declare manifests, and `MINITUI_DESK_MANIFEST=1 tuinotes` prints Notes'.
+- [ ] `add`, `remove` and `apps` work as §16.5 says, including a program that doesn't answer.
+- [ ] The launcher shows added apps, `apps.json` wins on an id, and the first-party apps on `PATH` appear unadded. Reader's `Ctrl+N` reaches Notes with no `apps.json`.
+
+**4c — The template.** §16.6.
+- [ ] `dotnet new tuidesk-app` makes a project that builds, tests, packs, installs and is added as §16.6 says, in CI.
+
+**4d — Docs.** §16.7.
+- [ ] The guides build without warnings in desk's CI, and the minitui site builds `/desk` from a desk tag (tried with a test tag on a branch, not deployed).
+
+**Phase exit:** Ben, on a machine or container with only the .NET SDK, follows `minitui.org/desk` from nothing: installs Desk and Notes, makes an app with the template, adds it, and sees its name and a notification in Desk.
+
+### 16.9 Risks
+- **Platform-specific AOT tools** are new in .NET 10. If `dotnet tool install` doesn't pick the right package, or AOT tools misbehave, a framework-dependent tool is the fallback, at the cost of startup time. That would be a new decision.
+- **nuget.org trusted publishing** needs Ben's policy before the first public release. Until then, GitHub Packages only.
+
+### 16.10 Out of scope
+Release binaries or distro packages for people without .NET, macOS or Windows hosts (§4), reloading apps while Desk runs, a catalog or store of apps, signing manifests, and a plain MiniTui template.
