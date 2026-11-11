@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-11
+
+The first release of MiniTui Desk: `tuidesk`, Notes, Tasks and Reader as .NET tools for Linux on x64 and arm64, the `MiniTui.Desk.Protocol` and `MiniTui.Vt` libraries, and the `tuidesk-app` template. Guides at [minitui.org/desk](https://minitui.org/desk).
+
 ### Added
 - Docs (spec §16.7, 4d): guides in `docs/site/` for using Desk, writing an app, the manifest and the protocol, with the API reference for `MiniTui.Desk.Protocol` and `MiniTui.Vt`, linked to MiniTui's. The minitui site builds them into `minitui.org/desk` from the latest release, and CI builds them with warnings as errors.
 - The template (spec §16.6, 4c): `MiniTui.Desk.Templates`, with `dotnet new tuidesk-app -n <Name> [--id <id>]`. It makes a MiniTui app that joins Desk with a manifest, a screen whose selection is the title and whose Enter sends a notification, tests with `ComponentHarness`, a solution, and packing as a .NET tool with Native AOT per platform. It references the MiniTui and `MiniTui.Desk.Protocol` versions released with it. CI generates one outside the repo, builds it with warnings as errors, tests, packs and installs it, and `tuidesk add`s it.
