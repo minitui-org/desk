@@ -25,6 +25,12 @@ jobs:
       - name: Test
         run: dotnet test src/MiniTui.Desk.sln --configuration Release --no-build
 
+      # The guides and the API reference that minitui.org/desk is built from, so a broken link fails here (spec §16.7)
+      - name: Docs
+        run: |
+          dotnet tool restore
+          dotnet docfx docs/site/docfx.json --warningsAsErrors
+
       - name: Native AOT
         run: |
           dotnet publish tests/MiniTui.Vt.AotHost/MiniTui.Vt.AotHost.csproj --configuration Release --output aot

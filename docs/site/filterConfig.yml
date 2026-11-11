@@ -1,0 +1,5 @@
+# The API pages leave out analyzer suppressions, which are for the library's build, not its users
+attributeRules:
+- exclude:
+    uidRegex: ^System\.Diagnostics\.CodeAnalysis\.SuppressMessageAttribute$
+    type: Type
