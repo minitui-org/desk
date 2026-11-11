@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `tools/clean-machine/Dockerfile`: a machine with only the .NET SDK and an ordinary user, for following minitui.org/desk from nothing.
+- `tools/clean-machine/Dockerfile`: a machine with only the .NET SDK and an ordinary user who can sudo, for following minitui.org/desk from nothing.
 
 ## [0.1.0] - 2026-11-11
 
